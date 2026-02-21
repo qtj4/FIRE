@@ -1,6 +1,7 @@
-version: '4.2'
+version: "3.9"
 
 services:
+
   postgres:
     image: postgres:16-alpine
     container_name: fire-postgres
@@ -9,23 +10,37 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "1111:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - fire_postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - reference-network
+      - fire-network
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: fire-redis
+    command: redis-server --requirepass ${REDIS_PWD:-fire123}
+    ports:
+      - "2222:6379"
+    volumes:
+      - fire_redis_data:/data
+    networks:
+      - fire-network
+
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: fire-zookeeper
     environment:
-      - ZOOKEEPER_CLIENT_PORT=2181
-      - ZOOKEEPER_TICK_TIME=2000
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - "2181:2181"
+      - "3333:2181"
     networks:
-      - reference-network
+      - fire-network
+
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
@@ -33,81 +48,18 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "4444:9092"
+      - "5555:29092"
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: SASL_PLAINTEXT://:9092,PLAINTEXT://:29092
-      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://localhost:9092,PLAINTEXT://kafka:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
-      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_ZOOKEEPER_CONNECT: fire-zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:4444
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf"
-      KAFKA_ZOOKEEPER_SASL_ENABLED: "false"
-      ZOOKEEPER_SASL_ENABLED: "false"
-      ALLOW_PLAINTEXT_LISTENER: "yes"
-    volumes:
-      - ./kafka_jaas.conf:/etc/kafka/kafka_jaas.conf
     networks:
-      - reference-network
+      - fire-network
 
-  redis:
-    image: redis:7-alpine
-    container_name: fire-redis
-    command: redis-server --requirepass ${REDIS_PWD:-jEdlwhz2wOA67lsK}
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - reference-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
 
-  minio:
-    image: minio/minio:latest
-    container_name: minio-server
-    ports:
-      - "19000:9000"   # MinIO API
-      - "19001:9001"   # MinIO Console
-    environment:
-      MINIO_ROOT_USER: qt-portal-user
-      MINIO_ROOT_PASSWORD: k0q2WapvIm2I7Mki
-    volumes:
-      - minio-data:/data
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - minio-network
-
-  minio-client:
-    image: minio/mc:latest
-    container_name: minio-client
-    depends_on:
-      - minio
-    networks:
-      - minio-network
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set local http://minio:9000 qt-portal-user k0q2WapvIm2I7Mki;
-      /usr/bin/mc mb local/fire --ignore-existing;
-      /usr/bin/mc mb local/fire-tmp --ignore-existing;
-      /usr/bin/mc version enable local/fire;
-      echo 'MinIO buckets created and configured';
-      tail -f /dev/null
-      "
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.7
     container_name: fire-keycloak
@@ -115,55 +67,80 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      # 🔓 Полностью отключаем HTTPS и strict режим
-      KC_HTTPS_REQUIRED: none
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
       KC_PROXY: none
-      KC_HOSTNAME: localhost
-      KC_LOG_LEVEL: info
     ports:
-      - "${KEYCLOAK_PORT:-9080}:8080"
+      - "6666:8080"
     volumes:
-      - keycloak_data:/opt/keycloak/data
+      - fire_keycloak_data:/opt/keycloak/data
     depends_on:
       - postgres
     networks:
-      - reference-network
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:9080/health/ready || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - fire-network
+
+
+  minio:
+    image: minio/minio:latest
+    container_name: fire-minio
+    ports:
+      - "7777:9000"
+      - "8888:9001"
+    environment:
+      MINIO_ROOT_USER: fire-user
+      MINIO_ROOT_PASSWORD: fire-password
+    volumes:
+      - fire_minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - fire-network
+
+
+  minio-client:
+    image: minio/mc:latest
+    container_name: fire-minio-client
+    depends_on:
+      - minio
+    networks:
+      - fire-network
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      mc alias set local http://fire-minio:9000 fire-user fire-password;
+      mc mb local/fire --ignore-existing;
+      mc mb local/fire-tmp --ignore-existing;
+      mc version enable local/fire;
+      echo 'MinIO configured';
+      tail -f /dev/null
+      "
+
 
   n8n:
     image: n8nio/n8n:latest
+    container_name: fire-n8n
     ports:
-      - "5678:5678"
+      - "9999:5678"
     environment:
       - N8N_HOST=localhost
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       - NODE_ENV=production
       - GENERIC_TIMEZONE=Asia/Qyzylorda
-      - TZ=Asia/Qyzylorda
-      # чтобы не ругался на "не https" при локалке
       - N8N_SECURE_COOKIE=false
     volumes:
-      - n8n_data:/home/node/.n8n
+      - fire_n8n_data:/home/node/.n8n
+    networks:
+      - fire-network
 
 
 volumes:
-  postgres_data:
-  redis_data:
-  minio-data:
-    driver: local
-  keycloak_data:
-  n8n_data:
+  fire_postgres_data:
+  fire_redis_data:
+  fire_keycloak_data:
+  fire_minio_data:
+  fire_n8n_data:
+
 
 networks:
-  reference-network:
-    driver: bridge
-  minio-network:
+  fire-network:
     driver: bridge
