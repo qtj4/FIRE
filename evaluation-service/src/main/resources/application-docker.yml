@@ -1,0 +1,206 @@
+server:
+  port: ${SERVER_PORT:8081}
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/}
+
+spring:
+  application:
+    name: evaluation-service
+    
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/fire}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      idle-timeout: ${DB_IDLE_TIMEOUT:300000}
+      max-lifetime: ${DB_MAX_LIFETIME:1200000}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:20000}
+    
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: ${JPA_BATCH_SIZE:20}
+        order_inserts: true
+        order_updates: true
+        
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:fire123}
+      timeout: ${REDIS_TIMEOUT:2000ms}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:20}
+          max-idle: ${REDIS_POOL_MAX_IDLE:10}
+          min-idle: ${REDIS_POOL_MIN_IDLE:5}
+          max-wait: ${REDIS_POOL_MAX_WAIT:2000ms}
+
+kafka:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+  consumer:
+    group-id: ${KAFKA_CONSUMER_GROUP_ID:evaluation-service-group-${INSTANCE_ID:default}}
+    auto-offset-reset: earliest
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    properties:
+      spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto
+      spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.TicketContext
+      max.poll.records: ${KAFKA_MAX_POLL_RECORDS:100}
+      fetch.min.bytes: ${KAFKA_FETCH_MIN_BYTES:1}
+      fetch.max.wait.ms: ${KAFKA_FETCH_MAX_WAIT:500}
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    properties:
+      acks: ${KAFKA_PRODUCER_ACKS:all}
+      retries: ${KAFKA_PRODUCER_RETRIES:3}
+      batch.size: ${KAFKA_PRODUCER_BATCH_SIZE:16384}
+      linger.ms: ${KAFKA_PRODUCER_LINGER_MS:5}
+      compression.type: ${KAFKA_COMPRESSION_TYPE:lz4}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,prometheus,metrics,env,configprops}
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when-authorized}
+      show-components: always
+  metrics:
+    export:
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true}
+        step: ${METRICS_STEP:60s}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.9,0.95,0.99
+  info:
+    env:
+      enabled: true
+    git:
+      mode: full
+
+logging:
+  level:
+    root: ${LOGGING_LEVEL_ROOT:INFO}
+    kz.enki.fire.evaluation_service: ${LOGGING_LEVEL_KZ_ENKI_FIRE_EVALUATION_SERVICE:INFO}
+    org.springframework.kafka: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_KAFKA:WARN}
+    org.hibernate.SQL: ${LOGGING_LEVEL_HIBERNATE_SQL:WARN}
+    org.springframework.web: ${LOGGING_LEVEL_SPRING_WEB:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId:-},%X{spanId:-}] [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId:-},%X{spanId:-}] [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOGGING_FILE_NAME:/app/logs/application.log}
+    max-size: ${LOGGING_FILE_MAX_SIZE:100MB}
+    max-history: ${LOGGING_FILE_MAX_HISTORY:30}
+
+app:
+  instance:
+    id: ${INSTANCE_ID:${random.uuid}}
+    region: ${APP_REGION:KZ}
+    environment: ${APP_ENVIRONMENT:production}
+  
+  kafka:
+    topics:
+      incoming: ${KAFKA_TOPIC_INCOMING:incoming_tickets}
+      outgoing: ${KAFKA_TOPIC_OUTGOING:final_distribution}
+      dlt: ${KAFKA_TOPIC_DLT:incoming_tickets_dlt}
+    consumer:
+      poll-timeout: ${KAFKA_POLL_TIMEOUT:5000}
+      session-timeout: ${KAFKA_SESSION_TIMEOUT:30000}
+      heartbeat-interval: ${KAFKA_HEARTBEAT_INTERVAL:10000}
+  
+  redis:
+    load-prefix: "manager:load:${app.instance.id}:"
+    cache:
+      ttl: ${REDIS_CACHE_TTL:3600}
+      max-size: ${REDIS_CACHE_MAX_SIZE:1000}
+  
+  ai:
+    service:
+      timeout: ${AI_SERVICE_TIMEOUT:5000}
+      retry-attempts: ${AI_SERVICE_RETRY_ATTEMPTS:3}
+      fallback-enabled: ${AI_FALLBACK_ENABLED:true}
+  
+  matching:
+    fallback-enabled: ${MATCHING_FALLBACK_ENABLED:true}
+    max-retry-attempts: ${MATCHING_MAX_RETRY_ATTEMPTS:3}
+    load-threshold: ${MATCHING_LOAD_THRESHOLD:15}
+    selection-strategy: ${MATCHING_SELECTION_STRATEGY:load-balanced}
+  
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+      allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+      allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: ${SWAGGER_TRY_IT_OUT_ENABLED:false}
+  show-actuator: ${SWAGGER_SHOW_ACTUATOR:false}
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+  
+app:
+  instance:
+    environment: development
+  matching:
+    load-threshold: 5
+  ai:
+    service:
+      timeout: 2000
+
+logging:
+  level:
+    root: DEBUG
+    kz.enki.fire.evaluation_service: DEBUG
+    org.springframework.kafka: INFO
+
+springdoc:
+  show-actuator: true
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+  
+app:
+  instance:
+    environment: test
+  ai:
+    service:
+      timeout: 1000
+  matching:
+    load-threshold: 2
+
+logging:
+  level:
+    root: WARN
+    kz.enki.fire.evaluation_service: INFO
