@@ -243,6 +243,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Set VITE_API_BASE_URL for production (e.g. http://2.133.130.153:8092). Default for local.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8092}
     container_name: fire-frontend
     ports:
       - "3111:80"
