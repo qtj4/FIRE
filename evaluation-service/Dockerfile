@@ -1,16 +1,14 @@
-FROM maven:latest AS builder
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
 
-# Родительский pom и оба модуля (parent требует оба в reactor)
 COPY pom.xml .
-COPY ticket-intake-service/pom.xml ticket-intake-service/
 COPY evaluation-service/pom.xml evaluation-service/
 COPY evaluation-service/src evaluation-service/src
-
-# Собираем только evaluation-service
+COPY ticket-intake-service/pom.xml ticket-intake-service/
 RUN mvn clean package -pl evaluation-service -am -DskipTests
 
-FROM eclipse-temurin:latest
+# Собираем конкретный модуль
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=builder /app/evaluation-service/target/*.jar app.jar
 EXPOSE 8081
