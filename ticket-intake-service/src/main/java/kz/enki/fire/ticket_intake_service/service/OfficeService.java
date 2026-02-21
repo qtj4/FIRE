@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +22,7 @@ public class OfficeService {
                         .name(req.getName())
                         .address(req.getAddress())
                         .build())
-                .collect(Collectors.toList());
+                .toList();
         officeRepository.saveAll(offices);
     }
 }
