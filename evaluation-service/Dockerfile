@@ -11,4 +11,4 @@ FROM eclipse-temurin:latest
 WORKDIR /app
 COPY --from=builder /app/evaluation-service/target/*.jar app.jar
 EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "app.j ar"]
