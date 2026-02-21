@@ -6,6 +6,9 @@ server:
 spring:
   application:
     name: evaluation-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
     
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/fire}
@@ -116,6 +119,7 @@ app:
     environment: ${APP_ENVIRONMENT:production}
   
   kafka:
+    enabled: false
     topics:
       incoming: ${KAFKA_TOPIC_INCOMING:incoming_tickets}
       outgoing: ${KAFKA_TOPIC_OUTGOING:final_distribution}

@@ -6,6 +6,9 @@ server:
 spring:
   application:
     name: evaluation-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
     
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/fire}
@@ -45,28 +48,28 @@ spring:
           min-idle: 5
           max-wait: 2000ms
 
-kafka:
-  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
-  consumer:
-    group-id: evaluation-service-group-${INSTANCE_ID:prod}
-    auto-offset-reset: earliest
-    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-    properties:
-      spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto
-      spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.TicketContext
-      max.poll.records: 100
-      fetch.min.bytes: 1
-      fetch.max.wait.ms: 500
-  producer:
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-    properties:
-      acks: all
-      retries: 3
-      batch.size: 16384
-      linger.ms: 5
-      compression.type: lz4
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    consumer:
+      group-id: evaluation-service-group-${INSTANCE_ID:prod}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto
+        spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.TicketContext
+        max.poll.records: 100
+        fetch.min.bytes: 1
+        fetch.max.wait.ms: 500
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        acks: all
+        retries: 3
+        batch.size: 16384
+        linger.ms: 5
+        compression.type: lz4
 
 management:
   endpoints:
@@ -115,6 +118,7 @@ app:
     environment: production
   
   kafka:
+    enabled: false
     topics:
       incoming: incoming_tickets
       outgoing: final_distribution

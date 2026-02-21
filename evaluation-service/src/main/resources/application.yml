@@ -1,6 +1,9 @@
 spring:
   application:
     name: evaluation-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:1111/fire}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -15,3 +18,7 @@ spring:
 
 server:
   port: 8092
+
+app:
+  kafka:
+    enabled: false
