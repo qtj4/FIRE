@@ -18,7 +18,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -30,7 +29,6 @@ public class TicketService {
     private final RawTicketRepository rawTicketRepository;
     private final EnrichedTicketRepository enrichedTicketRepository;
     private final N8nClient n8nClient;
-    private final EvaluationClient evaluationClient;
     private final GeocodingService geocodingService;
     private final EnrichedTicketProducer enrichedTicketProducer;
     private final EnrichedTicketMapper enrichedTicketMapper;
@@ -38,8 +36,6 @@ public class TicketService {
 
     @Qualifier("ticketTaskExecutor")
     private final Executor ticketTaskExecutor;
-
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd H:mm");
 
     @Transactional
     public void processTickets(List<TicketCsvRequest> requests) {
