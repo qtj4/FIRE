@@ -21,14 +21,20 @@ export const theme = createTheme({
     }
   },
   typography: {
-    fontFamily: '"Space Grotesk", "Segoe UI", sans-serif',
+    fontFamily: '"Manrope", "Segoe UI", sans-serif',
     button: {
       fontWeight: 700
     },
     h4: {
+      fontFamily: '"Sora", "Manrope", sans-serif',
+      fontWeight: 800
+    },
+    h5: {
+      fontFamily: '"Sora", "Manrope", sans-serif',
       fontWeight: 800
     },
     h6: {
+      fontFamily: '"Sora", "Manrope", sans-serif',
       fontWeight: 700
     }
   },

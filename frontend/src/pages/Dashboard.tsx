@@ -20,7 +20,9 @@ import {
   Legend
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
+import { EnvelopeScrollCard } from '@/components/EnvelopeScrollCard';
 import { PageShell } from '@/components/PageShell';
+import { RevealOnScroll } from '@/components/RevealOnScroll';
 import { StatCard } from '@/components/StatCard';
 import { fetchDashboardStats, fetchInsights, fetchServiceHealth } from '@/services/stats';
 import type { DashboardStats, InsightsResponse, ServiceHealth } from '@/types';
@@ -301,196 +303,223 @@ export function Dashboard() {
         <Stack spacing={3}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
-              <StatCard
-                label="Всего обращений"
-                value={stats.totals.tickets.toLocaleString('ru-RU')}
-                helper="За текущую смену"
-              />
+              <RevealOnScroll delayMs={0}>
+                <StatCard
+                  label="Всего обращений"
+                  value={stats.totals.tickets.toLocaleString('ru-RU')}
+                  helper="За текущую смену"
+                />
+              </RevealOnScroll>
             </Grid>
             <Grid item xs={12} md={3}>
-              <StatCard
-                label="Средний приоритет"
-                value={stats.totals.avgPriority.toFixed(1)}
-                helper="По шкале 1-10"
-              />
+              <RevealOnScroll delayMs={70}>
+                <StatCard
+                  label="Средний приоритет"
+                  value={stats.totals.avgPriority.toFixed(1)}
+                  helper="По шкале 1-10"
+                />
+              </RevealOnScroll>
             </Grid>
             <Grid item xs={12} md={3}>
-              <StatCard
-                label="Доля VIP"
-                value={`${Math.round(stats.totals.vipShare * 100)}%`}
-                helper="От всех обращений"
-              />
+              <RevealOnScroll delayMs={140}>
+                <StatCard
+                  label="Доля VIP"
+                  value={`${Math.round(stats.totals.vipShare * 100)}%`}
+                  helper="От всех обращений"
+                />
+              </RevealOnScroll>
             </Grid>
             <Grid item xs={12} md={3}>
-              <StatCard
-                label="В маршрутизации"
-                value={stats.totals.inRouting.toString()}
-                helper="Ожидают назначения"
-              />
+              <RevealOnScroll delayMs={210}>
+                <StatCard
+                  label="В маршрутизации"
+                  value={stats.totals.inRouting.toString()}
+                  helper="Ожидают назначения"
+                />
+              </RevealOnScroll>
             </Grid>
           </Grid>
 
+          <RevealOnScroll delayMs={70}>
+            <EnvelopeScrollCard />
+          </RevealOnScroll>
+
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
-                  Статус системы
-                </Typography>
-                <Stack spacing={1}>
-                  <Chip
-                    size="small"
-                    label={health?.status === 'UP' ? 'API доступен' : 'Проблемы API'}
-                    color={health?.status === 'UP' ? 'success' : 'warning'}
-                    sx={{ width: 'fit-content' }}
-                  />
-                  <Typography variant="body2">Назначено: {health?.assignedTotal ?? 0}</Typography>
-                  <Typography variant="body2">В очереди: {health?.unassignedTotal ?? 0}</Typography>
-                  <Typography variant="body2">Срочные в очереди: {health?.highPriorityUnassigned ?? 0}</Typography>
-                </Stack>
-              </Paper>
+              <RevealOnScroll>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                    Статус системы
+                  </Typography>
+                  <Stack spacing={1}>
+                    <Chip
+                      size="small"
+                      label={health?.status === 'UP' ? 'API доступен' : 'Проблемы API'}
+                      color={health?.status === 'UP' ? 'success' : 'warning'}
+                      sx={{ width: 'fit-content' }}
+                    />
+                    <Typography variant="body2">Назначено: {health?.assignedTotal ?? 0}</Typography>
+                    <Typography variant="body2">В очереди: {health?.unassignedTotal ?? 0}</Typography>
+                    <Typography variant="body2">Срочные в очереди: {health?.highPriorityUnassigned ?? 0}</Typography>
+                  </Stack>
+                </Paper>
+              </RevealOnScroll>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
-                  Языки обращений
-                </Typography>
-                <Stack spacing={1.2}>
-                  {stats.byLanguage.map((item) => (
-                    <Box key={item.language} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">{item.language}</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {item.count}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              </Paper>
+              <RevealOnScroll delayMs={90}>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                    Языки обращений
+                  </Typography>
+                  <Stack spacing={1.2}>
+                    {stats.byLanguage.map((item) => (
+                      <Box key={item.language} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">{item.language}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {item.count}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Paper>
+              </RevealOnScroll>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
-                  Рекомендации
-                </Typography>
-                <Stack spacing={1.1}>
-                  {(insights?.items ?? []).slice(0, 3).map((item) => (
-                    <Box key={item.title}>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {item.title}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.7)' }}>
-                        {item.detail}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              </Paper>
+              <RevealOnScroll delayMs={180}>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                    Рекомендации
+                  </Typography>
+                  <Stack spacing={1.1}>
+                    {(insights?.items ?? []).slice(0, 3).map((item) => (
+                      <Box key={item.title}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {item.title}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.7)' }}>
+                          {item.detail}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Paper>
+              </RevealOnScroll>
             </Grid>
           </Grid>
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={7}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  География обращений
-                </Typography>
-                <Bar
-                  data={byCityData}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { display: false }
-                    },
-                    scales: {
-                      x: { grid: { display: false } },
-                      y: { grid: { color: 'rgba(10, 21, 18, 0.08)' } }
-                    }
-                  }}
-                />
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={5}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  Тональность обращений
-                </Typography>
-                <Box sx={{ height: 260 }}>
-                  <Doughnut
-                    data={bySentimentData}
+              <RevealOnScroll>
+                <Paper
+                  elevation={0}
+                  sx={panelSx}
+                >
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    География обращений
+                  </Typography>
+                  <Bar
+                    data={byCityData}
                     options={{
                       responsive: true,
-                      maintainAspectRatio: false,
                       plugins: {
-                        legend: { position: 'bottom' }
+                        legend: { display: false }
+                      },
+                      scales: {
+                        x: { grid: { display: false } },
+                        y: { grid: { color: 'rgba(10, 21, 18, 0.08)' } }
                       }
                     }}
                   />
-                </Box>
-              </Paper>
+                </Paper>
+              </RevealOnScroll>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <RevealOnScroll delayMs={110}>
+                <Paper
+                  elevation={0}
+                  sx={panelSx}
+                >
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    Тональность обращений
+                  </Typography>
+                  <Box sx={{ height: 260 }}>
+                    <Doughnut
+                      data={bySentimentData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { position: 'bottom' }
+                        }
+                      }}
+                    />
+                  </Box>
+                </Paper>
+              </RevealOnScroll>
             </Grid>
           </Grid>
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={7}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  Типы обращений
-                </Typography>
-                <Bar
-                  data={byTypeData}
-                  options={{
-                    indexAxis: 'y',
-                    responsive: true,
-                    plugins: {
-                      legend: { display: false }
-                    },
-                    scales: {
-                      x: { grid: { color: 'rgba(10, 21, 18, 0.08)' } },
-                      y: { grid: { display: false } }
-                    }
-                  }}
-                />
-              </Paper>
+              <RevealOnScroll>
+                <Paper
+                  elevation={0}
+                  sx={panelSx}
+                >
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    Типы обращений
+                  </Typography>
+                  <Bar
+                    data={byTypeData}
+                    options={{
+                      indexAxis: 'y',
+                      responsive: true,
+                      plugins: {
+                        legend: { display: false }
+                      },
+                      scales: {
+                        x: { grid: { color: 'rgba(10, 21, 18, 0.08)' } },
+                        y: { grid: { display: false } }
+                      }
+                    }}
+                  />
+                </Paper>
+              </RevealOnScroll>
             </Grid>
             <Grid item xs={12} md={5}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  Распределение по офисам
-                </Typography>
-                <Stack spacing={1.5}>
-                  {stats.byOffice.map((item) => (
-                    <Box key={item.office} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">{item.office}</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {item.count}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              </Paper>
+              <RevealOnScroll delayMs={110}>
+                <Paper
+                  elevation={0}
+                  sx={panelSx}
+                >
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    Распределение по офисам
+                  </Typography>
+                  <Stack spacing={1.5}>
+                    {stats.byOffice.map((item) => (
+                      <Box key={item.office} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">{item.office}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {item.count}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Paper>
+              </RevealOnScroll>
             </Grid>
           </Grid>
 
-          <Paper
-            elevation={0}
-            sx={{
-              ...panelSx,
-              background:
-                'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,251,248,0.9) 70%, rgba(253,247,237,0.9) 100%)'
-            }}
-          >
-            <Stack spacing={2}>
+          <RevealOnScroll delayMs={50}>
+            <Paper
+              elevation={0}
+              sx={{
+                ...panelSx,
+                background:
+                  'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,251,248,0.9) 70%, rgba(253,247,237,0.9) 100%)'
+              }}
+            >
+              <Stack spacing={2}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -629,26 +658,27 @@ export function Dashboard() {
                 </Grid>
               ) : null}
 
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField
-                  label="Запрос ассистенту"
-                  placeholder="Например, покажи распределение типов обращений по городам"
-                  value={assistantInput}
-                  onChange={(event) => setAssistantInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      handleAssistantSubmit();
-                    }
-                  }}
-                  fullWidth
-                />
-                <Button variant="contained" disabled={!assistantInput.trim()} onClick={handleAssistantSubmit}>
-                  Построить
-                </Button>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <TextField
+                    label="Запрос ассистенту"
+                    placeholder="Например, покажи распределение типов обращений по городам"
+                    value={assistantInput}
+                    onChange={(event) => setAssistantInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        handleAssistantSubmit();
+                      }
+                    }}
+                    fullWidth
+                  />
+                  <Button variant="contained" disabled={!assistantInput.trim()} onClick={handleAssistantSubmit}>
+                    Построить
+                  </Button>
+                </Stack>
               </Stack>
-            </Stack>
-          </Paper>
+            </Paper>
+          </RevealOnScroll>
         </Stack>
       )}
     </PageShell>

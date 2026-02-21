@@ -1,5 +1,6 @@
 import { AppBar, Avatar, Badge, Box, Button, Chip, Stack, Toolbar, Typography } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
+import { BrandLogo } from '@/components/BrandLogo';
 import { mockManagerProfile } from '@/mocks/manager';
 
 const navItems = [
@@ -32,21 +33,21 @@ export function Navbar() {
       }}
     >
       <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', gap: 2.5, py: 0.75 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-          <Box
-            sx={{
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              background: 'linear-gradient(140deg, #2f7f6b 0%, #59b69a 100%)',
-              boxShadow: '0 0 0 6px rgba(47, 127, 107, 0.14)'
-            }}
-          />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.3, minWidth: 0 }}>
+          <BrandLogo />
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.45, lineHeight: 1.1 }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontFamily: '"Sora", "Space Grotesk", sans-serif',
+                fontWeight: 800,
+                letterSpacing: 0.35,
+                lineHeight: 1.1
+              }}
+            >
               FIRE Routing Console
             </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.62)' }}>
+            <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.68)', fontWeight: 600 }}>
               Corporate operations workspace
             </Typography>
           </Box>
