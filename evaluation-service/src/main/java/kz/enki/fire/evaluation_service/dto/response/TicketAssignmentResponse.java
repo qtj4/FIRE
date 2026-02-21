@@ -11,4 +11,6 @@ public class TicketAssignmentResponse {
     private String assignedManagerName;
     private Long assignedOfficeId;
     private String assignedOfficeName;
+    private String status;
+    private String message;
 }

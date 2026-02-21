@@ -22,8 +22,8 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { PageShell } from '@/components/PageShell';
 import { StatCard } from '@/components/StatCard';
-import { fetchDashboardStats } from '@/services/stats';
-import type { DashboardStats } from '@/types';
+import { fetchDashboardStats, fetchInsights, fetchServiceHealth } from '@/services/stats';
+import type { DashboardStats, InsightsResponse, ServiceHealth } from '@/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -32,7 +32,21 @@ const defaultStats: DashboardStats = {
   byCity: [],
   byType: [],
   byOffice: [],
-  bySentiment: []
+  bySentiment: [],
+  byLanguage: []
+};
+
+const panelSx = {
+  p: 3,
+  borderRadius: 4,
+  border: '1px solid rgba(10, 21, 18, 0.08)',
+  background:
+    'linear-gradient(150deg, rgba(255,255,255,0.93) 0%, rgba(244,251,248,0.86) 68%, rgba(251,246,237,0.88) 100%)',
+  transition: 'transform 180ms ease, box-shadow 180ms ease',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 14px 30px rgba(10, 21, 18, 0.08)'
+  }
 };
 
 type AssistantWidget =
@@ -86,6 +100,8 @@ const quickPrompts = [
 
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
+  const [health, setHealth] = useState<ServiceHealth | null>(null);
+  const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assistantInput, setAssistantInput] = useState('');
@@ -101,10 +117,12 @@ export function Dashboard() {
   useEffect(() => {
     let isMounted = true;
 
-    fetchDashboardStats()
-      .then((data) => {
+    Promise.all([fetchDashboardStats(), fetchServiceHealth(), fetchInsights()])
+      .then(([statsData, healthData, insightsData]) => {
         if (!isMounted) return;
-        setStats(data);
+        setStats(statsData);
+        setHealth(healthData);
+        setInsights(insightsData);
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -313,15 +331,67 @@ export function Dashboard() {
           </Grid>
 
           <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Статус системы
+                </Typography>
+                <Stack spacing={1}>
+                  <Chip
+                    size="small"
+                    label={health?.status === 'UP' ? 'API доступен' : 'Проблемы API'}
+                    color={health?.status === 'UP' ? 'success' : 'warning'}
+                    sx={{ width: 'fit-content' }}
+                  />
+                  <Typography variant="body2">Назначено: {health?.assignedTotal ?? 0}</Typography>
+                  <Typography variant="body2">В очереди: {health?.unassignedTotal ?? 0}</Typography>
+                  <Typography variant="body2">Срочные в очереди: {health?.highPriorityUnassigned ?? 0}</Typography>
+                </Stack>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Языки обращений
+                </Typography>
+                <Stack spacing={1.2}>
+                  {stats.byLanguage.map((item) => (
+                    <Box key={item.language} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">{item.language}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {item.count}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Рекомендации
+                </Typography>
+                <Stack spacing={1.1}>
+                  {(insights?.items ?? []).slice(0, 3).map((item) => (
+                    <Box key={item.title}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {item.title}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.7)' }}>
+                        {item.detail}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2}>
             <Grid item xs={12} md={7}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   География обращений
@@ -344,12 +414,7 @@ export function Dashboard() {
             <Grid item xs={12} md={5}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   Тональность обращений
@@ -374,12 +439,7 @@ export function Dashboard() {
             <Grid item xs={12} md={7}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   Типы обращений
@@ -403,12 +463,7 @@ export function Dashboard() {
             <Grid item xs={12} md={5}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   Распределение по офисам
@@ -430,10 +485,9 @@ export function Dashboard() {
           <Paper
             elevation={0}
             sx={{
-              p: 3,
-              borderRadius: 4,
-              border: '1px solid rgba(10, 21, 18, 0.08)',
-              background: 'rgba(255, 255, 255, 0.85)'
+              ...panelSx,
+              background:
+                'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,251,248,0.9) 70%, rgba(253,247,237,0.9) 100%)'
             }}
           >
             <Stack spacing={2}>
@@ -467,7 +521,14 @@ export function Dashboard() {
                     label={prompt}
                     size="small"
                     onClick={() => setAssistantInput(prompt)}
-                    sx={{ cursor: 'pointer' }}
+                    sx={{
+                      cursor: 'pointer',
+                      border: '1px solid rgba(47, 127, 107, 0.22)',
+                      background: 'rgba(47, 127, 107, 0.08)',
+                      '&:hover': {
+                        background: 'rgba(47, 127, 107, 0.18)'
+                      }
+                    }}
                   />
                 ))}
               </Stack>
@@ -482,7 +543,9 @@ export function Dashboard() {
                       p: 2,
                       borderRadius: 3,
                       background:
-                        message.role === 'user' ? 'rgba(47, 127, 107, 0.12)' : 'rgba(10, 21, 18, 0.04)'
+                        message.role === 'user'
+                          ? 'linear-gradient(120deg, rgba(47, 127, 107, 0.22), rgba(89, 182, 154, 0.16))'
+                          : 'rgba(10, 21, 18, 0.04)'
                     }}
                   >
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
@@ -502,7 +565,8 @@ export function Dashboard() {
                           p: 2.5,
                           borderRadius: 3,
                           border: '1px solid rgba(10, 21, 18, 0.08)',
-                          background: 'rgba(255, 255, 255, 0.9)'
+                          background:
+                            'linear-gradient(145deg, rgba(255,255,255,0.94) 0%, rgba(246,252,249,0.88) 65%, rgba(251,246,236,0.9) 100%)'
                         }}
                       >
                         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>

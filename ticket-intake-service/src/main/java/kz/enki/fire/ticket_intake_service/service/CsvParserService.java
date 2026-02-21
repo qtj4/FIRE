@@ -11,6 +11,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -18,17 +19,19 @@ import java.util.function.Consumer;
 @Slf4j
 public class CsvParserService {
 
-    public <T> IntakeResponse parseAndProcess(MultipartFile file, Class<T> clazz, Consumer<List<T>> processor) {
+    public <T> CsvParseResult<T> parse(MultipartFile file, Class<T> clazz) {
         if (file.isEmpty()) {
-            return IntakeResponse.builder()
+            return CsvParseResult.<T>builder()
                     .status("ERROR")
                     .message("File is empty")
+                    .items(Collections.emptyList())
+                    .failedCount(0)
                     .build();
         }
 
         try (InputStream inputStream = file.getInputStream();
              BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            
+
             reader.mark(1);
             if (reader.read() != 0xFEFF) {
                 reader.reset();
@@ -43,28 +46,54 @@ public class CsvParserService {
 
             List<T> items = csvToBean.parse();
             int failedCount = csvToBean.getCapturedExceptions().size();
-            
-            if (!items.isEmpty()) {
-                processor.accept(items);
-            }
-
-            csvToBean.getCapturedExceptions().forEach(e -> 
-                log.warn("Error parsing CSV line: {}", e.getMessage())
+            csvToBean.getCapturedExceptions().forEach(e ->
+                    log.warn("Error parsing CSV line: {}", e.getMessage())
             );
 
-            return IntakeResponse.builder()
+            return CsvParseResult.<T>builder()
                     .status("SUCCESS")
-                    .message("Processing completed")
-                    .processedCount(items.size())
+                    .message("Parsing completed")
+                    .items(items)
                     .failedCount(failedCount)
                     .build();
-
         } catch (Exception e) {
             log.error("Failed to parse CSV file", e);
-            return IntakeResponse.builder()
+            return CsvParseResult.<T>builder()
                     .status("ERROR")
                     .message("Failed to parse CSV: " + e.getMessage())
+                    .items(Collections.emptyList())
+                    .failedCount(0)
                     .build();
         }
+    }
+
+    public <T> IntakeResponse parseAndProcess(MultipartFile file, Class<T> clazz, Consumer<List<T>> processor) {
+        CsvParseResult<T> parseResult = parse(file, clazz);
+        if ("ERROR".equalsIgnoreCase(parseResult.getStatus())) {
+            return IntakeResponse.builder()
+                    .status(parseResult.getStatus())
+                    .message(parseResult.getMessage())
+                    .build();
+        }
+
+        if (!parseResult.getItems().isEmpty()) {
+            processor.accept(parseResult.getItems());
+        }
+
+        return IntakeResponse.builder()
+                .status("SUCCESS")
+                .message("Processing completed")
+                .processedCount(parseResult.getItems().size())
+                .failedCount(parseResult.getFailedCount())
+                .build();
+    }
+
+    @lombok.Builder
+    @lombok.Getter
+    public static class CsvParseResult<T> {
+        private String status;
+        private String message;
+        private List<T> items;
+        private int failedCount;
     }
 }

@@ -33,5 +33,10 @@ export const mockStats: DashboardStats = {
     { sentiment: 'Негативный', count: 41 },
     { sentiment: 'Нейтральный', count: 63 },
     { sentiment: 'Позитивный', count: 24 }
+  ],
+  byLanguage: [
+    { language: 'RU', count: 90 },
+    { language: 'KZ', count: 24 },
+    { language: 'ENG', count: 14 }
   ]
 };

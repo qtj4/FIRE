@@ -47,8 +47,18 @@ public class GatewayRouteConfig {
                         .path("/api/tickets/**")
                         .uri(getServiceUri("ticket-intake-service")))
 
+                .route("ticket-intake-service-intake", r -> r
+                        .path("/api/intake/ticket-intake/**")
+                        .filters(f -> f.rewritePath("/api/intake/ticket-intake/(?<segment>.*)", "/api/v1/intake/${segment}"))
+                        .uri(getServiceUri("ticket-intake-service")))
+
                 .route("evaluation-service", r -> r
                         .path("/api/evaluation/**")
+                        .uri(getServiceUri("evaluation-service")))
+
+                .route("evaluation-service-intake", r -> r
+                        .path("/api/intake/evaluation/**")
+                        .filters(f -> f.rewritePath("/api/intake/evaluation/(?<segment>.*)", "/api/v1/intake/${segment}"))
                         .uri(getServiceUri("evaluation-service")))
 
                 .build();

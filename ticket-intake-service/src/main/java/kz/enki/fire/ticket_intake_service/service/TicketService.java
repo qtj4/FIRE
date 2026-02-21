@@ -30,6 +30,7 @@ public class TicketService {
     private final RawTicketRepository rawTicketRepository;
     private final EnrichedTicketRepository enrichedTicketRepository;
     private final N8nClient n8nClient;
+    private final EvaluationClient evaluationClient;
     private final GeocodingService geocodingService;
     private final EnrichedTicketProducer enrichedTicketProducer;
     private final EnrichedTicketMapper enrichedTicketMapper;

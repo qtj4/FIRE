@@ -44,6 +44,27 @@ public class EnrichedTicket {
 
     private LocalDateTime enrichedAt;
 
+    @Column(name = "assigned_manager_id")
+    private Long assignedManagerId;
+
+    @Column(name = "assigned_manager_name")
+    private String assignedManagerName;
+
+    @Column(name = "assigned_office_id")
+    private Long assignedOfficeId;
+
+    @Column(name = "assigned_office_name")
+    private String assignedOfficeName;
+
+    @Column(name = "assignment_status")
+    private String assignmentStatus;
+
+    @Column(name = "assignment_message")
+    private String assignmentMessage;
+
+    @Column(name = "assigned_at")
+    private LocalDateTime assignedAt;
+
     @PrePersist
     protected void onEnrich() {
         enrichedAt = LocalDateTime.now();
