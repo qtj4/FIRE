@@ -23,37 +23,43 @@ public class HttpTicketAssignmentService {
 
     @Transactional
     public TicketAssignmentResponse createAndAssign(EnrichedTicketAssignRequest request) {
+
         Long rawTicketId = request.getRawTicketId() != null
                 ? request.getRawTicketId()
                 : (request.getRawTicket() != null ? request.getRawTicket().getId() : null);
+
         if (rawTicketId == null) {
             throw new IllegalArgumentException("rawTicketId is required (either rawTicketId or rawTicket.id)");
         }
 
         RawTicket rawTicket = rawTicketRepository.findById(rawTicketId)
                 .orElseThrow(() -> new IllegalArgumentException("Raw ticket not found: " + rawTicketId));
-        enrichedTicketRepository.findByRawTicketId(rawTicketId).ifPresent(existing -> {
-            throw new IllegalArgumentException("Enriched ticket already exists for rawTicketId: " + rawTicketId);
-        });
 
-        EnrichedTicket ticket = EnrichedTicket.builder()
-                .rawTicket(rawTicket)
-                .clientGuid(request.getClientGuid() != null ? request.getClientGuid() : rawTicket.getClientGuid())
-                .type(request.getType())
-                .priority(request.getPriority())
-                .summary(request.getSummary())
-                .language(request.getLanguage())
-                .sentiment(request.getSentiment())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .build();
+        // 1. Проверяем, есть ли уже enriched
+        EnrichedTicket ticket = enrichedTicketRepository.findByRawTicketId(rawTicketId)
+                .orElseGet(() -> {
+                    // 2. Если нет — создаём
+                    EnrichedTicket newTicket = EnrichedTicket.builder()
+                            .rawTicket(rawTicket)
+                            .clientGuid(request.getClientGuid() != null ? request.getClientGuid() : rawTicket.getClientGuid())
+                            .type(request.getType())
+                            .priority(request.getPriority())
+                            .summary(request.getSummary())
+                            .language(request.getLanguage())
+                            .sentiment(request.getSentiment())
+                            .latitude(request.getLatitude())
+                            .longitude(request.getLongitude())
+                            .build();
 
-        EnrichedTicket saved = enrichedTicketRepository.save(ticket);
-        EnrichedTicketEvent event = enrichedTicketMapper.toEvent(saved);
+                    return enrichedTicketRepository.save(newTicket);
+                });
+
+        // 3. Делаем назначение (если нужно — можешь добавить проверку, чтобы не переназначать)
+        EnrichedTicketEvent event = enrichedTicketMapper.toEvent(ticket);
         assignmentService.assignManager(event);
 
-        EnrichedTicket assigned = enrichedTicketRepository.findById(saved.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Enriched ticket not found after save: " + saved.getId()));
+        EnrichedTicket assigned = enrichedTicketRepository.findById(ticket.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Enriched ticket not found: " + ticket.getId()));
 
         return TicketAssignmentResponse.builder()
                 .enrichedTicketId(assigned.getId())
