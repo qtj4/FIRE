@@ -1,0 +1,4 @@
+include:
+  - project: qtj4/FIRE
+    ref: ci-cd-maven
+    file: .github-ci.yml
