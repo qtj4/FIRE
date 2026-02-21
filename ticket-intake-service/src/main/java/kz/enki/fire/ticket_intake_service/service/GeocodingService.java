@@ -15,6 +15,10 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -22,48 +26,43 @@ public class GeocodingService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${geocoding.nominatim.url:https://nominatim.openstreetmap.org/search}")
-    private String nominatimUrl;
+    @Value("${geocoding.photon.url:https://photon.komoot.io/api/}")
+    private String photonUrl;
 
-    @Value("${geocoding.nominatim.user-agent:FIRE-Project-Geocoding-Service}")
-    private String userAgent;
+    public GeocodingResult geocode(Map<String, String> addressComponents) {
+        String fullAddress = addressComponents.values().stream()
+                .filter(Objects::nonNull)
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
 
-    public GeocodingResult geocode(String address) {
-        if (address == null || address.isBlank()) {
+        if (fullAddress.isBlank()) {
             return null;
         }
 
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(nominatimUrl)
-                    .queryParam("q", address)
-                    .queryParam("format", "json")
+            String url = UriComponentsBuilder.fromHttpUrl(photonUrl)
+                    .queryParam("q", fullAddress)
                     .queryParam("limit", 1)
                     .toUriString();
 
-            log.info("Geocoding address: {}", address);
+            log.info("Geocoding via Photon: {}", fullAddress);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Agent", userAgent);
-            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<PhotonResponse> response = restTemplate.getForEntity(url, PhotonResponse.class);
+            PhotonResponse body = response.getBody();
 
-            ResponseEntity<NominatimResult[]> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    entity,
-                    NominatimResult[].class
-            );
-
-            NominatimResult[] results = response.getBody();
-
-            if (results != null && results.length > 0) {
-                NominatimResult result = results[0];
+            if (body != null && body.getFeatures() != null && !body.getFeatures().isEmpty()) {
+                List<Double> coords = body.getFeatures().get(0).getGeometry().getCoordinates();
+                // Photon returns [lon, lat]
+                log.info("Found coordinates: lon={}, lat={}", coords.get(0), coords.get(1));
                 return new GeocodingResult(
-                        new BigDecimal(result.getLat()),
-                        new BigDecimal(result.getLon())
+                        BigDecimal.valueOf(coords.get(1)), // lat
+                        BigDecimal.valueOf(coords.get(0))  // lon
                 );
+            } else {
+                log.warn("No results found for: {}", fullAddress);
             }
         } catch (Exception e) {
-            log.error("Error during geocoding: {}", e.getMessage());
+            log.error("Geocoding error for '{}': {}", fullAddress, e.getMessage());
         }
 
         return null;
@@ -71,10 +70,19 @@ public class GeocodingService {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class NominatimResult {
-        private String lat;
-        private String lon;
-        @JsonProperty("display_name")
-        private String displayName;
+    private static class PhotonResponse {
+        private List<Feature> features;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class Feature {
+        private Geometry geometry;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class Geometry {
+        private List<Double> coordinates;
     }
 }
