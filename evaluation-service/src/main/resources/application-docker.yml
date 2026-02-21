@@ -124,8 +124,9 @@ app:
       session-timeout: ${KAFKA_SESSION_TIMEOUT:30000}
       heartbeat-interval: ${KAFKA_HEARTBEAT_INTERVAL:10000}
   
-  redis:
-    load-prefix: "manager:load:"
+#  redis:
+#    load-prefix: "manager:load:"
+
   matching:
     fallback-enabled: ${MATCHING_FALLBACK_ENABLED:true}
     max-retry-attempts: ${MATCHING_MAX_RETRY_ATTEMPTS:3}
@@ -134,9 +135,9 @@ app:
   
   security:
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
-      allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
-      allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:"*"}
+      allowed-methods: ${CORS_ALLOWED_METHODS:"GET,POST,PUT,DELETE,OPTIONS"}
+      allowed-headers: ${CORS_ALLOWED_HEADERS:"*"}
       allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
 
 springdoc:
