@@ -26,7 +26,7 @@ public class EnrichedTicket {
     @Column(name = "client_guid")
     private UUID clientGuid;
 
-    @Column(name = "type_")
+    @Column(name = "type")
     private String type;
 
     private Integer priority;
