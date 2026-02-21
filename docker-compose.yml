@@ -1,0 +1,150 @@
+version: '4.2'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: enki-postgres
+    environment:
+      POSTGRES_DB: enki
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - reference-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: enki-zookeeper
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+    ports:
+      - "2181:2181"
+    networks:
+      - reference-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: enki-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: SASL_PLAINTEXT://:9092,PLAINTEXT://:29092
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://localhost:9092,PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf"
+      KAFKA_ZOOKEEPER_SASL_ENABLED: "false"
+      ZOOKEEPER_SASL_ENABLED: "false"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - ./kafka_jaas.conf:/etc/kafka/kafka_jaas.conf
+    networks:
+      - reference-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: enki-redis
+    command: redis-server --requirepass ${REDIS_PWD:-jEdlwhz2wOA67lsK}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - reference-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio-server
+    ports:
+      - "19000:9000"   # MinIO API
+      - "19001:9001"   # MinIO Console
+    environment:
+      MINIO_ROOT_USER: qt-portal-user
+      MINIO_ROOT_PASSWORD: k0q2WapvIm2I7Mki
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - minio-network
+
+  minio-client:
+    image: minio/mc:latest
+    container_name: minio-client
+    depends_on:
+      - minio
+    networks:
+      - minio-network
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 qt-portal-user k0q2WapvIm2I7Mki;
+      /usr/bin/mc mb local/enki --ignore-existing;
+      /usr/bin/mc mb local/enki-tmp --ignore-existing;
+      /usr/bin/mc version enable local/enki;
+      echo 'MinIO buckets created and configured';
+      tail -f /dev/null
+      "
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.7
+    container_name: enki-keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # 🔓 Полностью отключаем HTTPS и strict режим
+      KC_HTTPS_REQUIRED: none
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_PROXY: none
+      KC_HOSTNAME: localhost
+      KC_LOG_LEVEL: info
+    ports:
+      - "${KEYCLOAK_PORT:-9080}:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    depends_on:
+      - postgres
+    networks:
+      - reference-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9080/health/ready || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+volumes:
+  postgres_data:
+  redis_data:
+  minio-data:
+    driver: local
+  keycloak_data:
+
+networks:
+  reference-network:
+    driver: bridge
+  minio-network:
+    driver: bridge
