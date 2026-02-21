@@ -1,6 +1,8 @@
 package kz.enki.fire.ticket_intake_service.service;
 
+import kz.enki.fire.ticket_intake_service.client.N8nClient;
 import kz.enki.fire.ticket_intake_service.dto.request.TicketCsvRequest;
+import kz.enki.fire.ticket_intake_service.dto.response.N8nEnrichmentResponse;
 import kz.enki.fire.ticket_intake_service.model.EnrichedTicket;
 import kz.enki.fire.ticket_intake_service.model.RawTicket;
 import kz.enki.fire.ticket_intake_service.repository.EnrichedTicketRepository;
@@ -23,6 +25,7 @@ public class TicketService {
     private final RawTicketRepository rawTicketRepository;
     private final EnrichedTicketRepository enrichedTicketRepository;
     private final OfficeRepository officeRepository;
+    private final N8nClient n8nClient;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd H:mm");
 
@@ -46,10 +49,14 @@ public class TicketService {
 
                 rawTicket = rawTicketRepository.save(rawTicket);
 
+                N8nEnrichmentResponse response = n8nClient.enrichTicket(rawTicket);
+
                 EnrichedTicket enrichedTicket = EnrichedTicket.builder()
                         .rawTicket(rawTicket)
                         .clientGuid(rawTicket.getClientGuid())
-                        .summary("Pending enrichment...")
+                        .summary(response != null ? response.getSummary() : "Pending enrichment...")
+                        .sentiment(response != null ? response.getSentiment() : null)
+                        .detectedLanguage(response != null ? response.getLanguage() : null)
                         .build();
 
                 officeRepository.findByName(rawTicket.getCity())
