@@ -37,6 +37,15 @@ n8n:
   webhook-path: ${N8N_WEBHOOK_PATH:/webhook-test/ticket}
   api-key: ${N8N_API_KEY:reqres_bfea449a338147e6aff41a56a3067e4e}
 
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: ${SWAGGER_TRY_IT_OUT_ENABLED:false}
+
 logging:
   level:
     root: INFO
