@@ -213,6 +213,9 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-mini-transcribe}
+      TICKET_WEBHOOK_URL: ${TICKET_WEBHOOK_URL:-http://2.133.130.153:5678/webhook/ticket}
+      TICKET_API_KEY: ${TICKET_API_KEY:-}
+      TICKET_CSV_TEMPLATE: "${TICKET_CSV_TEMPLATE:-a154a8e6-439d-4a7b-86e8-56ef94b18ee2,Мужской,1999-12-31 0:00,{text},data_error.png,VIP,Казахстан,Восточно-Казахстанская,Усть-Каменогорск  ул. Казахстан,30}"
       PORT: "5000"
     networks:
       - fire-network
@@ -260,8 +263,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Set VITE_API_BASE_URL for production (e.g. http://2.133.130.153:8092). Default for local.
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8092}
+        VITE_INTAKE_API_BASE_URL: ${VITE_INTAKE_API_BASE_URL:-http://localhost:8082}
     container_name: fire-frontend
     ports:
       - "3111:80"

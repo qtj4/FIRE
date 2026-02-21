@@ -44,7 +44,7 @@ app:
       incoming: ${KAFKA_TOPIC_INCOMING:incoming_tickets}
 
 evaluation:
-  base-url: ${EVALUATION_BASE_URL:http://localhost:8082}
+  base-url: ${EVALUATION_BASE_URL:http://localhost:8092}
   assign-path: ${EVALUATION_ASSIGN_PATH:/api/v1/intake}
 
 n8n:

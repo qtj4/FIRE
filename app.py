@@ -21,10 +21,16 @@ BACKEND_URL = os.getenv("BACKEND_URL") or "http://localhost:5000/receive-recordi
 MAX_RECORD_SECONDS = int(os.getenv("MAX_RECORD_SECONDS", "60"))
 VOICE_LANG = os.getenv("VOICE_LANG", "ru-RU")
 VOICE_NAME = os.getenv("VOICE_NAME", "alice")
-TWILIO_ACCOUNT_SID = "AC6f2894a55dd4a13ed1cbc5fdec666bfa"
-TWILIO_AUTH_TOKEN = "143cb02c6c0555ea1044a432f7282842"
-OPENAI_API_KEY = "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"
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
+TICKET_WEBHOOK_URL = "http://2.133.130.153:5678/webhook/ticket"
+TICKET_API_KEY = "reqres_bfea449a338147e6aff41a56a3067e4e"
+TICKET_CSV_TEMPLATE = os.getenv(
+    "TICKET_CSV_TEMPLATE",
+    "a154a8e6-439d-4a7b-86e8-56ef94b18ee2,Мужской,1999-12-31 0:00,{text},data_error.png,VIP,Казахстан,Восточно-Казахстанская,Усть-Каменогорск  ул. Казахстан,30",
+)
 
 
 @app.route("/process-call", methods=["POST"])
@@ -51,17 +57,17 @@ def process_recording() -> Response:
         logger.warning("Missing RecordingUrl in callback payload")
         return Response("Missing RecordingUrl", status=400)
 
-    mp3_url = f"{recording_url}.mp3"
+    normalized_url = normalize_audio_url(recording_url)
     logger.info(
         "Recording received sid=%s duration=%s from=%s url=%s",
         recording_sid,
         recording_duration,
         from_number,
-        mp3_url,
+        normalized_url,
     )
 
     transcript = send_to_backend(
-        mp3_url,
+        normalized_url,
         recording_sid=recording_sid,
         from_number=from_number,
         recording_duration=recording_duration,
@@ -139,6 +145,8 @@ def receive_recording() -> Response:
         except OSError:
             logger.warning("Failed to remove temp file %s", file_path)
 
+    ticket_status = send_ticket_webhook(transcript)
+
     return jsonify(
         {
             "transcript": transcript,
@@ -146,12 +154,15 @@ def receive_recording() -> Response:
             "from": from_number,
             "recording_duration": recording_duration,
             "audio_url": normalized_url,
+            "ticket_webhook_status": ticket_status,
         }
     )
 
 
 def normalize_audio_url(audio_url: str) -> str:
     if audio_url.endswith((".mp3", ".wav", ".m4a", ".webm", ".mp4")):
+        return audio_url
+    if "?" in audio_url:
         return audio_url
     return f"{audio_url}.mp3"
 
@@ -184,6 +195,49 @@ def transcribe_audio(file_path: str) -> str:
         )
     text = getattr(transcription, "text", None)
     return text if text is not None else str(transcription)
+
+
+def csv_escape(value: str) -> str:
+    if any(ch in value for ch in [",", "\"", "\n", "\r"]):
+        return "\"" + value.replace("\"", "\"\"") + "\""
+    return value
+
+
+def send_ticket_webhook(transcript: str) -> Optional[int]:
+    if not TICKET_WEBHOOK_URL:
+        logger.info("TICKET_WEBHOOK_URL not set, skipping ticket webhook")
+        return None
+
+    safe_text = csv_escape(transcript)
+    csv_payload = TICKET_CSV_TEMPLATE.replace("{text}", safe_text)
+    headers = {"Accept": "application/json"}
+    if TICKET_API_KEY:
+        headers["x-api-key"] = TICKET_API_KEY
+
+    try:
+        response = requests.post(
+            TICKET_WEBHOOK_URL,
+            headers=headers,
+            files={"csv": (None, csv_payload)},
+            timeout=20,
+        )
+        response.raise_for_status()
+        body_preview = response.text[:1000] if response.text else ""
+        logger.info("Ticket webhook delivered: %s body=%s", response.status_code, body_preview)
+        return response.status_code
+    except requests.RequestException as exc:
+        error_body = ""
+        if getattr(exc, "response", None) is not None:
+            try:
+                error_body = exc.response.text[:1000]
+            except Exception:
+                error_body = ""
+        if error_body:
+            logger.error("Ticket webhook failed: %s body=%s", exc, error_body)
+        else:
+            logger.error("Ticket webhook failed: %s", exc)
+        return None
+
 
 def _fetch_html(url: str) -> str:
     headers = {

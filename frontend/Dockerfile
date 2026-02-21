@@ -3,18 +3,18 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies (including devDependencies needed for build)
 RUN npm ci
 
-# Copy source code
+# Copy full source (src/, configs). .dockerignore excludes node_modules, dist
 COPY . .
 
-# Allow override of API URL at build time (e.g. http://localhost:8092 for local docker)
+# Allow override at build time for local docker
 ARG VITE_API_BASE_URL
+ARG VITE_INTAKE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_INTAKE_API_BASE_URL=${VITE_INTAKE_API_BASE_URL}
 
 # Build the application
 RUN npm run build

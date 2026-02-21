@@ -9,3 +9,12 @@ export const api = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+/** API for ticket-intake-service (CSV upload, intake pipeline) */
+export const intakeApi = axios.create({
+  baseURL: import.meta.env.VITE_INTAKE_API_BASE_URL || 'http://localhost:8082',
+  timeout: 60000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});

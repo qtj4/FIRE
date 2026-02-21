@@ -45,6 +45,7 @@ public class IntakeController {
             return TicketIntakeResponse.builder()
                     .status(parseResult.getStatus())
                     .message(parseResult.getMessage())
+                    .processedCount(0)
                     .failedCount(parseResult.getFailedCount())
                     .build();
         }
