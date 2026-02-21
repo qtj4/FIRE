@@ -34,6 +34,14 @@ const segmentStyles: Record<string, { bg: string; color: string }> = {
   Mass: { bg: 'rgba(31, 46, 41, 0.08)', color: '#1f2e29' }
 };
 
+const panelSx = {
+  p: 3,
+  borderRadius: 4,
+  border: '1px solid rgba(10, 21, 18, 0.08)',
+  background:
+    'linear-gradient(145deg, rgba(255,255,255,0.94) 0%, rgba(246,252,249,0.88) 64%, rgba(251,246,236,0.9) 100%)'
+};
+
 export function TicketList() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,12 +137,7 @@ export function TicketList() {
     >
       <Paper
         elevation={0}
-        sx={{
-          p: 3,
-          borderRadius: 4,
-          border: '1px solid rgba(10, 21, 18, 0.08)',
-          background: 'rgba(255, 255, 255, 0.85)'
-        }}
+        sx={panelSx}
       >
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mb={3}>
           <TextField
@@ -200,7 +203,14 @@ export function TicketList() {
           <Alert severity="error">{error}</Alert>
         ) : (
           <>
-            <Table size="small">
+            <Table
+              size="small"
+              sx={{
+                '& .MuiTableRow-root:hover': {
+                  background: 'rgba(47, 127, 107, 0.06)'
+                }
+              }}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
@@ -220,7 +230,7 @@ export function TicketList() {
                     sx={{ cursor: 'pointer' }}
                     onClick={() => setSelectedTicket(ticket)}
                   >
-                    <TableCell sx={{ fontWeight: 600 }}>{ticket.id}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{ticket.id}</TableCell>
                     <TableCell>
                       <Chip
                         size="small"
@@ -234,7 +244,7 @@ export function TicketList() {
                     </TableCell>
                     <TableCell>{ticket.type}</TableCell>
                     <TableCell sx={{ maxWidth: 320 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
                         {ticket.description}
                       </Typography>
                       {ticket.summary ? (
@@ -283,7 +293,13 @@ export function TicketList() {
         anchor="right"
         open={Boolean(selectedTicket)}
         onClose={() => setSelectedTicket(null)}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 420, md: 480 }, p: 3 } }}
+        PaperProps={{
+          sx: {
+            width: { xs: '100%', sm: 420, md: 480 },
+            p: 3,
+            borderLeft: '1px solid rgba(10, 21, 18, 0.08)'
+          }
+        }}
       >
         {selectedTicket ? (
           <Stack spacing={2}>

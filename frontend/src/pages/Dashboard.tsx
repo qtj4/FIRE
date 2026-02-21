@@ -35,6 +35,19 @@ const defaultStats: DashboardStats = {
   bySentiment: []
 };
 
+const panelSx = {
+  p: 3,
+  borderRadius: 4,
+  border: '1px solid rgba(10, 21, 18, 0.08)',
+  background:
+    'linear-gradient(150deg, rgba(255,255,255,0.93) 0%, rgba(244,251,248,0.86) 68%, rgba(251,246,237,0.88) 100%)',
+  transition: 'transform 180ms ease, box-shadow 180ms ease',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 14px 30px rgba(10, 21, 18, 0.08)'
+  }
+};
+
 type AssistantWidget =
   | {
       id: string;
@@ -316,12 +329,7 @@ export function Dashboard() {
             <Grid item xs={12} md={7}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   География обращений
@@ -344,12 +352,7 @@ export function Dashboard() {
             <Grid item xs={12} md={5}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   Тональность обращений
@@ -374,12 +377,7 @@ export function Dashboard() {
             <Grid item xs={12} md={7}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   Типы обращений
@@ -403,12 +401,7 @@ export function Dashboard() {
             <Grid item xs={12} md={5}>
               <Paper
                 elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: 4,
-                  border: '1px solid rgba(10, 21, 18, 0.08)',
-                  background: 'rgba(255, 255, 255, 0.85)'
-                }}
+                sx={panelSx}
               >
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
                   Распределение по офисам
@@ -430,10 +423,9 @@ export function Dashboard() {
           <Paper
             elevation={0}
             sx={{
-              p: 3,
-              borderRadius: 4,
-              border: '1px solid rgba(10, 21, 18, 0.08)',
-              background: 'rgba(255, 255, 255, 0.85)'
+              ...panelSx,
+              background:
+                'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,251,248,0.9) 70%, rgba(253,247,237,0.9) 100%)'
             }}
           >
             <Stack spacing={2}>
@@ -467,7 +459,14 @@ export function Dashboard() {
                     label={prompt}
                     size="small"
                     onClick={() => setAssistantInput(prompt)}
-                    sx={{ cursor: 'pointer' }}
+                    sx={{
+                      cursor: 'pointer',
+                      border: '1px solid rgba(47, 127, 107, 0.22)',
+                      background: 'rgba(47, 127, 107, 0.08)',
+                      '&:hover': {
+                        background: 'rgba(47, 127, 107, 0.18)'
+                      }
+                    }}
                   />
                 ))}
               </Stack>
@@ -482,7 +481,9 @@ export function Dashboard() {
                       p: 2,
                       borderRadius: 3,
                       background:
-                        message.role === 'user' ? 'rgba(47, 127, 107, 0.12)' : 'rgba(10, 21, 18, 0.04)'
+                        message.role === 'user'
+                          ? 'linear-gradient(120deg, rgba(47, 127, 107, 0.22), rgba(89, 182, 154, 0.16))'
+                          : 'rgba(10, 21, 18, 0.04)'
                     }}
                   >
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
@@ -502,7 +503,8 @@ export function Dashboard() {
                           p: 2.5,
                           borderRadius: 3,
                           border: '1px solid rgba(10, 21, 18, 0.08)',
-                          background: 'rgba(255, 255, 255, 0.9)'
+                          background:
+                            'linear-gradient(145deg, rgba(255,255,255,0.94) 0%, rgba(246,252,249,0.88) 65%, rgba(251,246,236,0.9) 100%)'
                         }}
                       >
                         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>

@@ -21,14 +21,26 @@ body {
   min-height: 100vh;
   color: var(--ink-900);
   background-image:
-    radial-gradient(circle at 10% 20%, rgba(89, 182, 154, 0.15), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(199, 143, 44, 0.18), transparent 40%),
-    linear-gradient(135deg, #f7f3ea 0%, #f2efe8 45%, #f5f2ec 100%);
+    radial-gradient(circle at 8% 18%, rgba(89, 182, 154, 0.2), transparent 45%),
+    radial-gradient(circle at 85% 2%, rgba(199, 143, 44, 0.2), transparent 38%),
+    radial-gradient(circle at 52% 86%, rgba(60, 151, 129, 0.12), transparent 35%),
+    linear-gradient(130deg, #f7f3ea 0%, #f2efe8 42%, #f5f2ec 100%);
   background-attachment: fixed;
 }
 
 #root {
   min-height: 100vh;
+}
+
+#root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(10, 21, 18, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10, 21, 18, 0.03) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at center, black 30%, transparent 100%);
 }
 
 a {
