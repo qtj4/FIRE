@@ -9,25 +9,37 @@ services:
       POSTGRES_DB: fire
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
       - "1111:5432"
     volumes:
       - fire_postgres_data:/var/lib/postgresql/data
+      - ./evaluation-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - fire-network
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fire"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: fire-redis
-    command: redis-server --requirepass ${REDIS_PWD:-fire123}
+    command: redis-server --requirepass ${REDIS_PWD:-fire123} --appendonly yes
     ports:
       - "2222:6379"
     volumes:
       - fire_redis_data:/data
     networks:
       - fire-network
-
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PWD:-fire123}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
@@ -39,13 +51,19 @@ services:
       - "3333:2181"
     networks:
       - fire-network
-
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: fire-kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "4444:9092"
       - "5555:29092"
@@ -55,8 +73,32 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
     networks:
       - fire-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: fire-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: fire-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - fire-network
+    restart: unless-stopped
 
 
   keycloak:
@@ -137,7 +179,7 @@ services:
       dockerfile: evaluation-service/Dockerfile
     container_name: fire-evaluation
     ports:
-      - "8082:8081"
+      - "8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fire
       SPRING_DATASOURCE_USERNAME: postgres
