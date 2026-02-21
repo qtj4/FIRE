@@ -63,13 +63,10 @@ public class TicketService {
                         .clientGuid(rawTicket.getClientGuid())
                         .summary(response != null ? response.getSummary() : "Pending enrichment...")
                         .sentiment(response != null ? response.getSentiment() : null)
-                        .detectedLanguage(response != null ? response.getLanguage() : null)
+                        .language(response != null ? response.getLanguage() : null)
                         .latitude(geoResult != null ? geoResult.getLatitude() : null)
                         .longitude(geoResult != null ? geoResult.getLongitude() : null)
                         .build();
-
-                officeRepository.findByName(rawTicket.getCity())
-                        .ifPresent(enrichedTicket::setAssignedOffice);
 
                 enrichedTicketRepository.save(enrichedTicket);
             } catch (Exception e) {
