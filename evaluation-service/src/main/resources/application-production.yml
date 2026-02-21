@@ -142,6 +142,13 @@ app:
     load-threshold: 15
     selection-strategy: load-balanced
   
+  security:
+    cors:
+      allowed-origins: "*"
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: "*"
+      allow-credentials: true
+
 springdoc:
   api-docs:
     path: /api-docs

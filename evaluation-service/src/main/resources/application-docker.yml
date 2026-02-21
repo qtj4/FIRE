@@ -125,23 +125,20 @@ app:
       heartbeat-interval: ${KAFKA_HEARTBEAT_INTERVAL:10000}
   
   redis:
-    load-prefix: "manager:load:${app.instance.id}:"
-    cache:
-      ttl: ${REDIS_CACHE_TTL:3600}
-      max-size: ${REDIS_CACHE_MAX_SIZE:1000}
-  
-  ai:
-    service:
-      timeout: ${AI_SERVICE_TIMEOUT:5000}
-      retry-attempts: ${AI_SERVICE_RETRY_ATTEMPTS:3}
-      fallback-enabled: ${AI_FALLBACK_ENABLED:true}
-  
+    load-prefix: manager:load:
   matching:
     fallback-enabled: ${MATCHING_FALLBACK_ENABLED:true}
     max-retry-attempts: ${MATCHING_MAX_RETRY_ATTEMPTS:3}
     load-threshold: ${MATCHING_LOAD_THRESHOLD:15}
     selection-strategy: ${MATCHING_SELECTION_STRATEGY:load-balanced}
   
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+      allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+      allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+
 springdoc:
   api-docs:
     path: /api-docs
