@@ -11,7 +11,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   }
 
   try {
-    const { data } = await api.get<DashboardStats>('/api/stats');
+    const { data } = await api.get<DashboardStats>('/api/evaluation/stats');
     return data;
   } catch (error) {
     console.warn('API недоступен, используется mock-аналитика.', error);

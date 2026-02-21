@@ -17,15 +17,20 @@ export function PageShell({ title, subtitle, actions, children }: PageShellProps
           alignItems: { xs: 'flex-start', md: 'center' },
           justifyContent: 'space-between',
           gap: 3,
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          p: { xs: 2.5, md: 3 },
+          borderRadius: 4,
+          border: '1px solid rgba(10, 21, 18, 0.08)',
+          background:
+            'linear-gradient(120deg, rgba(255, 255, 255, 0.88) 0%, rgba(241, 251, 247, 0.82) 55%, rgba(255, 247, 235, 0.86) 100%)'
         }}
       >
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5, letterSpacing: -0.5 }}>
             {title}
           </Typography>
           {subtitle ? (
-            <Typography variant="body1" sx={{ color: 'rgba(10, 21, 18, 0.7)' }}>
+            <Typography variant="body1" sx={{ color: 'rgba(10, 21, 18, 0.72)', maxWidth: 760 }}>
               {subtitle}
             </Typography>
           ) : null}

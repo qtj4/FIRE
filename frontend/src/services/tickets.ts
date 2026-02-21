@@ -11,7 +11,7 @@ export async function fetchTickets(): Promise<Ticket[]> {
   }
 
   try {
-    const { data } = await api.get<Ticket[]>('/api/tickets');
+    const { data } = await api.get<Ticket[]>('/api/evaluation/tickets');
     return data;
   } catch (error) {
     console.warn('API недоступен, используется mock-список обращений.', error);
