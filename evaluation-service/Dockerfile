@@ -6,7 +6,7 @@ WORKDIR /app
 COPY parent-pom.xml /app/pom.xml
 COPY pom.xml /app/evaluation-service/pom.xml
 COPY src /app/evaluation-service/src
-RUN mvn -f /app/evaluation-service/pom.xml clean package -DskipTests
+RUN mvn -f /app/evaluation-service/pom.xml clean package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
