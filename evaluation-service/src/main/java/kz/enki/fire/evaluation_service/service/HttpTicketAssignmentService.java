@@ -1,0 +1,62 @@
+package kz.enki.fire.evaluation_service.service;
+
+import kz.enki.fire.evaluation_service.dto.request.EnrichedTicketAssignRequest;
+import kz.enki.fire.evaluation_service.dto.response.TicketAssignmentResponse;
+import kz.enki.fire.evaluation_service.model.EnrichedTicket;
+import kz.enki.fire.evaluation_service.model.RawTicket;
+import kz.enki.fire.evaluation_service.repository.EnrichedTicketRepository;
+import kz.enki.fire.evaluation_service.repository.RawTicketRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class HttpTicketAssignmentService {
+
+    private final RawTicketRepository rawTicketRepository;
+    private final EnrichedTicketRepository enrichedTicketRepository;
+    private final AssignmentService assignmentService;
+
+    @Transactional
+    public TicketAssignmentResponse createAndAssign(EnrichedTicketAssignRequest request) {
+        Long rawTicketId = request.getRawTicketId() != null
+                ? request.getRawTicketId()
+                : (request.getRawTicket() != null ? request.getRawTicket().getId() : null);
+        if (rawTicketId == null) {
+            throw new IllegalArgumentException("rawTicketId is required (either rawTicketId or rawTicket.id)");
+        }
+
+        RawTicket rawTicket = rawTicketRepository.findById(rawTicketId)
+                .orElseThrow(() -> new IllegalArgumentException("Raw ticket not found: " + rawTicketId));
+        enrichedTicketRepository.findByRawTicketId(rawTicketId).ifPresent(existing -> {
+            throw new IllegalArgumentException("Enriched ticket already exists for rawTicketId: " + rawTicketId);
+        });
+
+        EnrichedTicket ticket = EnrichedTicket.builder()
+                .rawTicket(rawTicket)
+                .clientGuid(request.getClientGuid() != null ? request.getClientGuid() : rawTicket.getClientGuid())
+                .type(request.getType())
+                .priority(request.getPriority())
+                .summary(request.getSummary())
+                .language(request.getLanguage())
+                .sentiment(request.getSentiment())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .build();
+
+        EnrichedTicket saved = enrichedTicketRepository.save(ticket);
+        assignmentService.assignManager(saved.getId());
+
+        EnrichedTicket assigned = enrichedTicketRepository.findById(saved.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Enriched ticket not found after save: " + saved.getId()));
+
+        return TicketAssignmentResponse.builder()
+                .enrichedTicketId(assigned.getId())
+                .assignedManagerId(assigned.getAssignedManager() != null ? assigned.getAssignedManager().getId() : null)
+                .assignedManagerName(assigned.getAssignedManager() != null ? assigned.getAssignedManager().getFullName() : null)
+                .assignedOfficeId(assigned.getAssignedOffice() != null ? assigned.getAssignedOffice().getId() : null)
+                .assignedOfficeName(assigned.getAssignedOffice() != null ? assigned.getAssignedOffice().getName() : null)
+                .build();
+    }
+}
