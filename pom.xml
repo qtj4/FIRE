@@ -18,6 +18,7 @@
     <modules>
         <module>ticket-intake-service</module>
         <module>evaluation-service</module>
+        <module>api-gateway</module>
     </modules>
 
     <properties>

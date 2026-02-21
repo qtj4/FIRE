@@ -1,0 +1,18 @@
+server:
+  port: ${API_GATEWAY_PORT:9000}
+
+spring:
+  application:
+    name: api-gateway
+
+gateway:
+  use-direct-urls: ${GATEWAY_USE_DIRECT_URLS:true}
+  services:
+    ticket-intake-service: ${TICKET_INTAKE_SERVICE_URL:http://localhost:8081}
+    evaluation-service: ${EVALUATION_SERVICE_URL:http://localhost:8082}
+
+logging:
+  level:
+    root: ${LOG_ROOT_LEVEL:INFO}
+    org.springframework.cloud.gateway: TRACE
+
