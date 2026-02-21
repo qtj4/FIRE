@@ -47,4 +47,23 @@ export interface DashboardStats {
   byType: Array<{ type: string; count: number }>;
   byOffice: Array<{ office: string; count: number }>;
   bySentiment: Array<{ sentiment: string; count: number }>;
+  byLanguage: Array<{ language: string; count: number }>;
+}
+
+export interface ServiceHealth {
+  status: string;
+  timestamp: string;
+  ticketsTotal: number;
+  assignedTotal: number;
+  unassignedTotal: number;
+  highPriorityUnassigned: number;
+}
+
+export interface InsightsResponse {
+  generatedAt: string;
+  items: Array<{
+    severity: 'low' | 'medium' | 'high' | string;
+    title: string;
+    detail: string;
+  }>;
 }

@@ -22,8 +22,8 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { PageShell } from '@/components/PageShell';
 import { StatCard } from '@/components/StatCard';
-import { fetchDashboardStats } from '@/services/stats';
-import type { DashboardStats } from '@/types';
+import { fetchDashboardStats, fetchInsights, fetchServiceHealth } from '@/services/stats';
+import type { DashboardStats, InsightsResponse, ServiceHealth } from '@/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -32,7 +32,8 @@ const defaultStats: DashboardStats = {
   byCity: [],
   byType: [],
   byOffice: [],
-  bySentiment: []
+  bySentiment: [],
+  byLanguage: []
 };
 
 const panelSx = {
@@ -99,6 +100,8 @@ const quickPrompts = [
 
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
+  const [health, setHealth] = useState<ServiceHealth | null>(null);
+  const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assistantInput, setAssistantInput] = useState('');
@@ -114,10 +117,12 @@ export function Dashboard() {
   useEffect(() => {
     let isMounted = true;
 
-    fetchDashboardStats()
-      .then((data) => {
+    Promise.all([fetchDashboardStats(), fetchServiceHealth(), fetchInsights()])
+      .then(([statsData, healthData, insightsData]) => {
         if (!isMounted) return;
-        setStats(data);
+        setStats(statsData);
+        setHealth(healthData);
+        setInsights(insightsData);
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -322,6 +327,63 @@ export function Dashboard() {
                 value={stats.totals.inRouting.toString()}
                 helper="Ожидают назначения"
               />
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Статус системы
+                </Typography>
+                <Stack spacing={1}>
+                  <Chip
+                    size="small"
+                    label={health?.status === 'UP' ? 'API доступен' : 'Проблемы API'}
+                    color={health?.status === 'UP' ? 'success' : 'warning'}
+                    sx={{ width: 'fit-content' }}
+                  />
+                  <Typography variant="body2">Назначено: {health?.assignedTotal ?? 0}</Typography>
+                  <Typography variant="body2">В очереди: {health?.unassignedTotal ?? 0}</Typography>
+                  <Typography variant="body2">Срочные в очереди: {health?.highPriorityUnassigned ?? 0}</Typography>
+                </Stack>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Языки обращений
+                </Typography>
+                <Stack spacing={1.2}>
+                  {stats.byLanguage.map((item) => (
+                    <Box key={item.language} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">{item.language}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {item.count}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Рекомендации
+                </Typography>
+                <Stack spacing={1.1}>
+                  {(insights?.items ?? []).slice(0, 3).map((item) => (
+                    <Box key={item.title}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {item.title}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.7)' }}>
+                        {item.detail}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
             </Grid>
           </Grid>
 
