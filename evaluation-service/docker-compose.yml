@@ -167,7 +167,7 @@ services:
       prometheus:
         condition: service_started
     ports:
-      - "300${GRAFANA_PORT_SUFFIX:-0}:3000"
+      - "300${GRAFANA_PORT_SUFFIX:-1}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin123
