@@ -1,3 +1,19 @@
+# docker compose up — поднимает весь стек, включая evaluation-service, kafka-ui, prometheus, grafana.
+#
+# Порты (host):
+#   1111  postgres
+#   2222  redis
+#   3333  zookeeper
+#   4444  kafka
+#   6666  keycloak
+#   7777  minio API  8888  minio console
+#   8081  ticket-intake-service
+#   8082  evaluation-service
+#   8090  kafka-ui
+#   9091  prometheus
+#   3001  grafana (admin / admin123)
+#   3111  frontend
+#
 version: "3.9"
 
 services:
@@ -178,21 +194,76 @@ services:
       context: .
       dockerfile: evaluation-service/Dockerfile
     container_name: fire-evaluation
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
-      - "8082:8082"
+      - "8082:8081"
     environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: "8081"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fire
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_PROFILES_ACTIVE: docker
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "false"
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PWD:-fire123}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus,metrics
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: always
+      MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED: "true"
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_KZ_ENKI_FIRE_EVALUATION_SERVICE: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_KAFKA: INFO
+    networks:
+      - fire-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fire-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./evaluation-service/prometheus.yml:/etc/prometheus/prometheus.yml
+      - fire_prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --storage.tsdb.retention.time=200h
+      - --web.enable-lifecycle
+    networks:
+      - fire-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fire-grafana
     depends_on:
-      - postgres
-      - redis
-      - kafka
+      - prometheus
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - fire_grafana_data:/var/lib/grafana
+      - ./evaluation-service/grafana/provisioning:/etc/grafana/provisioning
     networks:
       - fire-network
     restart: unless-stopped
@@ -214,6 +285,8 @@ volumes:
   fire_keycloak_data:
   fire_minio_data:
   fire_n8n_data:
+  fire_prometheus_data:
+  fire_grafana_data:
 
 
 networks:
