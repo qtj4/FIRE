@@ -1,6 +1,7 @@
 package kz.enki.fire.ticket_intake_service.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import kz.enki.fire.ticket_intake_service.dto.response.GeocodingResult;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +12,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -22,46 +19,33 @@ public class GeocodingService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${geocoding.positionstack.api-key:18d8b4d34ff9e61b974e3d3c2e7ba730}")
-    private String apiKey;
+    @Value("${geocoding.custom.url:http://2.133.130.153:5000/geocode}")
+    private String geocodingUrl;
 
-    @Value("${geocoding.positionstack.url:http://api.positionstack.com/v1/forward}")
-    private String positionstackUrl;
-
-    public GeocodingResult geocode(Map<String, String> addressComponents) {
-        String fullAddress = addressComponents.values().stream()
-                .filter(Objects::nonNull)
-                .filter(s -> !s.isBlank())
-                .collect(Collectors.joining(", "));
-
-        if (fullAddress.isBlank()) {
+    public GeocodingResult geocode(String address) {
+        if (address == null || address.isBlank()) {
             return null;
         }
 
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(positionstackUrl)
-                    .queryParam("access_key", apiKey)
-                    .queryParam("query", fullAddress)
-                    .queryParam("limit", 1)
+            String url = UriComponentsBuilder.fromHttpUrl(geocodingUrl)
+                    .queryParam("address", address)
                     .toUriString();
 
-            log.info("Geocoding via Positionstack: {}", fullAddress);
+            log.info("Geocoding via custom server: {}", address);
 
-            ResponseEntity<PositionstackResponse> response = restTemplate.getForEntity(url, PositionstackResponse.class);
-            PositionstackResponse body = response.getBody();
+            ResponseEntity<CustomGeocodingResponse> response = restTemplate.getForEntity(url, CustomGeocodingResponse.class);
+            CustomGeocodingResponse body = response.getBody();
 
-            if (body != null && body.getData() != null && !body.getData().isEmpty()) {
-                PositionstackData result = body.getData().get(0);
-                log.info("Found coordinates for {}: lat={}, lon={}", fullAddress, result.getLatitude(), result.getLongitude());
+            if (body != null) {
+                log.info("Found coordinates for {}: lat={}, lon={}", address, body.getLat(), body.getLon());
                 return new GeocodingResult(
-                        BigDecimal.valueOf(result.getLatitude()),
-                        BigDecimal.valueOf(result.getLongitude())
+                        BigDecimal.valueOf(body.getLat()),
+                        BigDecimal.valueOf(body.getLon())
                 );
-            } else {
-                log.warn("No results found for: {}", fullAddress);
             }
         } catch (Exception e) {
-            log.error("Geocoding error for '{}': {}", fullAddress, e.getMessage());
+            log.error("Geocoding error for '{}': {}", address, e.getMessage());
         }
 
         return null;
@@ -69,15 +53,11 @@ public class GeocodingService {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class PositionstackResponse {
-        private List<PositionstackData> data;
-    }
-
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class PositionstackData {
-        private double latitude;
-        private double longitude;
-        private String label;
+    private static class CustomGeocodingResponse {
+        private double lat;
+        private double lon;
+        private String address;
+        @JsonProperty("source_url")
+        private String sourceUrl;
     }
 }

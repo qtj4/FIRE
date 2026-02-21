@@ -18,9 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -58,14 +56,10 @@ public class TicketService {
 
                 N8nEnrichmentResponse response = n8nClient.enrichTicket(rawTicket);
 
-                Map<String, String> addressMap = new LinkedHashMap<>();
-                addressMap.put("country", rawTicket.getCountry());
-                addressMap.put("region", rawTicket.getRegion());
-                addressMap.put("city", rawTicket.getCity());
-                addressMap.put("street", rawTicket.getStreet());
-                addressMap.put("house", rawTicket.getHouseNumber());
-
-                GeocodingResult geoResult = geocodingService.geocode(addressMap);
+                GeocodingResult geoResult = null;
+                if (response != null && response.getGeo_normalized() != null) {
+                    geoResult = geocodingService.geocode(response.getGeo_normalized());
+                }
 
                 EnrichedTicket enrichedTicket = EnrichedTicket.builder()
                         .rawTicket(rawTicket)
