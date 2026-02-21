@@ -17,13 +17,13 @@ app = Flask(__name__)
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("twilio-voice")
 
-BACKEND_URL = os.getenv("BACKEND_URL") or "http://localhost:5000/receive-recording"
+BACKEND_URL = "http://localhost:5000/receive-recording"
 MAX_RECORD_SECONDS = int(os.getenv("MAX_RECORD_SECONDS", "60"))
 VOICE_LANG = os.getenv("VOICE_LANG", "ru-RU")
 VOICE_NAME = os.getenv("VOICE_NAME", "alice")
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TWILIO_ACCOUNT_SID = "AC6f2894a55dd4a13ed1cbc5fdec666bfa"
+TWILIO_AUTH_TOKEN = "143cb02c6c0555ea1044a432f7282842"
+OPENAI_API_KEY = "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"
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
 TICKET_WEBHOOK_URL = "http://2.133.130.153:5678/webhook/ticket"
 TICKET_API_KEY = "reqres_bfea449a338147e6aff41a56a3067e4e"
@@ -337,4 +337,4 @@ def health() -> Response:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5001")), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
