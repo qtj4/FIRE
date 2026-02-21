@@ -1,7 +1,6 @@
-package kz.enki.fire.ticket_intake_service.config;
+package kz.enki.fire.evaluation_service.config;
 
-import kz.enki.fire.ticket_intake_service.dto.kafka.IncomingTicketMessage;
-import lombok.RequiredArgsConstructor;
+import kz.enki.fire.evaluation_service.dto.kafka.AssignmentResultMessage;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -16,13 +15,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
-@RequiredArgsConstructor
 public class KafkaProducerConfig {
 
-    private final KafkaProperties kafkaProperties;
-
     @Bean
-    public ProducerFactory<String, IncomingTicketMessage> producerFactory() {
+    public ProducerFactory<String, AssignmentResultMessage> assignmentResultProducerFactory(KafkaProperties kafkaProperties) {
         Map<String, Object> config = new HashMap<>(kafkaProperties.buildProducerProperties());
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
@@ -30,7 +26,7 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, IncomingTicketMessage> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+    public KafkaTemplate<String, AssignmentResultMessage> kafkaTemplate(ProducerFactory<String, AssignmentResultMessage> assignmentResultProducerFactory) {
+        return new KafkaTemplate<>(assignmentResultProducerFactory);
     }
 }
