@@ -16,7 +16,7 @@ export function Navbar() {
   const isOnline = manager.status === 'online';
   const initials = manager.fullName
     .split(' ')
-    .map((chunk) => chunk[0])
+    .map((chunk: string) => chunk[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
