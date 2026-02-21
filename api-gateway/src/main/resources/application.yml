@@ -1,0 +1,41 @@
+server:
+  port: ${API_GATEWAY_PORT:9000}
+
+spring:
+  application:
+    name: api-gateway
+
+gateway:
+  use-direct-urls: ${GATEWAY_USE_DIRECT_URLS:true}
+  services:
+    ticket-intake-service: ${TICKET_INTAKE_SERVICE_URL:http://localhost:8081}
+    evaluation-service: ${EVALUATION_SERVICE_URL:http://localhost:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,prometheus,metrics,env,configprops}
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when-authorized}
+      show-components: always
+  metrics:
+    export:
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true}
+        step: ${METRICS_STEP:60s}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.9,0.95,0.99
+  info:
+    env:
+      enabled: true
+
+logging:
+  level:
+    root: ${LOG_ROOT_LEVEL:INFO}
+    org.springframework.cloud.gateway: TRACE
+

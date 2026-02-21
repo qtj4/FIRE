@@ -8,7 +8,7 @@
 #   6666  keycloak
 #   7777  minio API  8888  minio console
 #   8081  ticket-intake-service
-#   8082  evaluation-service
+#   8092  evaluation-service
 #   5000  twilio-voice
 #   8090  kafka-ui
 #   9091  prometheus
@@ -203,10 +203,10 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "8082:8082"
+      - "8092:8092"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SERVER_PORT: "8081"
+      SERVER_PORT: "8092"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fire
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
@@ -225,7 +225,7 @@ services:
     networks:
       - fire-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8092/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
