@@ -25,10 +25,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: evaluation-redis
+    container_name: evaluation-redis-${INSTANCE_ID:-prod}
     command: redis-server --requirepass fire123 --appendonly yes
     ports:
-      - "2222:6379"
+      - "638${REDIS_PORT_SUFFIX:-1}:6379"
     volumes:
       - redis_data:/data
     networks:
