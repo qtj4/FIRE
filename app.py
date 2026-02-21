@@ -4,9 +4,12 @@ import os
 import logging
 import tempfile
 from typing import Optional
-
+import html as html_lib
+from urllib.parse import quote, unquote
+import re
+from urllib.parse import quote
 import requests
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, request, jsonify
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -182,11 +185,102 @@ def transcribe_audio(file_path: str) -> str:
     text = getattr(transcription, "text", None)
     return text if text is not None else str(transcription)
 
+def _fetch_html(url: str) -> str:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+    }
+    response = requests.get(url, headers=headers, timeout=10)
+    response.raise_for_status()
+    return response.text
+
+
+def _extract_view_coordinates(search_html: str) -> Optional[tuple[float, float]]:
+    # 2GIS search page triggers a request like:
+    # https://jam.api.2gis.com/scores?view=71.451118,51.09100999999999,71.451118,51.09100999999999&z=11
+    candidates = [
+        search_html,
+        html_lib.unescape(search_html),
+        unquote(search_html),
+    ]
+    for text in candidates:
+        match = re.search(
+            r"jam\.api\.2gis\.com/scores\?view=([0-9.+-]+),([0-9.+-]+),([0-9.+-]+),([0-9.+-]+)",
+            text,
+        )
+        if match:
+            lon1, lat1, lon2, lat2 = match.groups()
+            lon = float(lon1)
+            lat = float(lat1)
+            if lon1 != lon2 or lat1 != lat2:
+                logger.warning("Scores view bbox mismatch: %s,%s vs %s,%s", lon1, lat1, lon2, lat2)
+            return lat, lon
+
+        match = re.search(
+            r'["\']view["\']\s*[:=]\s*["\']?([0-9.+-]+)\s*,\s*([0-9.+-]+)\s*,\s*([0-9.+-]+)\s*,\s*([0-9.+-]+)',
+            text,
+        )
+        if match:
+            lon1, lat1, lon2, lat2 = match.groups()
+            lon = float(lon1)
+            lat = float(lat1)
+            if lon1 != lon2 or lat1 != lat2:
+                logger.warning("View bbox mismatch: %s,%s vs %s,%s", lon1, lat1, lon2, lat2)
+            return lat, lon
+
+        match = re.search(
+            r'["\']center["\']\s*:\s*\[\s*([0-9.+-]+)\s*,\s*([0-9.+-]+)\s*\]',
+            text,
+        )
+        if match:
+            lon, lat = match.groups()
+            return float(lat), float(lon)
+
+        match = re.search(
+            r'["\']point["\']\s*:\s*\{\s*["\']lon["\']\s*:\s*([0-9.+-]+)\s*,\s*["\']lat["\']\s*:\s*([0-9.+-]+)\s*\}',
+            text,
+        )
+        if match:
+            lon, lat = match.groups()
+            return float(lat), float(lon)
+    return None
+
+
+@app.route("/geocode", methods=["GET"])
+def geocode() -> Response:
+    address = (request.args.get("address") or "").strip()
+    if not address:
+        return jsonify({"error": "address is required"}), 400
+
+    search_url = f"https://2gis.kz/search/{quote(address, safe='')}"
+    try:
+        search_html = _fetch_html(search_url)
+        coords = _extract_view_coordinates(search_html)
+        if not coords:
+            logger.warning("No scores view coordinates found for address=%s", address)
+            return jsonify({"error": "coordinates not found"}), 502
+    except requests.RequestException as exc:
+        logger.error("2gis request failed: %s", exc)
+        return jsonify({"error": "upstream request failed"}), 502
+    except ValueError as exc:
+        logger.error("Failed to parse coordinates: %s", exc)
+        return jsonify({"error": "invalid coordinate format"}), 502
+
+    lat, lon = coords
+    return jsonify(
+        {
+            "address": address,
+            "lat": lat,
+            "lon": lon,
+            "source_url": search_url,
+        }
+    )
 
 @app.route("/health", methods=["GET"])
 def health() -> Response:
-    return Response("ok", status=200)
+    return Response("okj", status=200)
+
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5001")), debug=True)
