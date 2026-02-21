@@ -125,7 +125,7 @@ app:
       heartbeat-interval: ${KAFKA_HEARTBEAT_INTERVAL:10000}
   
   redis:
-    load-prefix: manager:load:
+    load-prefix: "manager:load:"
   matching:
     fallback-enabled: ${MATCHING_FALLBACK_ENABLED:true}
     max-retry-attempts: ${MATCHING_MAX_RETRY_ATTEMPTS:3}
