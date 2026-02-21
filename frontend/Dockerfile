@@ -3,13 +3,11 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies (including devDependencies needed for build)
 RUN npm ci
 
-# Copy source code
+# Copy full source (src/, configs). .dockerignore excludes node_modules, dist
 COPY . .
 
 # Allow override at build time for local docker
