@@ -140,8 +140,8 @@ services:
 
   evaluation-service:
     build:
-      context: .
-      dockerfile: evaluation-service/Dockerfile
+      context: ./evaluation-service
+      dockerfile: Dockerfile
     container_name: fire-evaluation
     depends_on:
       postgres:
