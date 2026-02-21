@@ -131,6 +131,24 @@ services:
       - fire-network
     restart: unless-stopped
 
+  evaluation-service:
+    build:
+      context: .
+      dockerfile: evaluation-service/Dockerfile
+    container_name: fire-evaluation
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://fire-postgres:5432/fire
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+    networks:
+      - fire-network
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
