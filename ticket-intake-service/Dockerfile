@@ -5,9 +5,10 @@ WORKDIR /app
 # Copy parent pom.xml
 COPY pom.xml .
 
-# Copy only existing module poms that are defined in parent pom.xml
+# Copy module poms that are defined in parent pom.xml
 COPY ticket-intake-service/pom.xml ./ticket-intake-service/
 COPY evaluation-service/pom.xml ./evaluation-service/
+COPY api-gateway/pom.xml ./api-gateway/
 
 # Copy source code for the target module
 COPY ticket-intake-service/src ./ticket-intake-service/src

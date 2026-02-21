@@ -5,6 +5,7 @@ COPY pom.xml .
 COPY evaluation-service/pom.xml evaluation-service/
 COPY evaluation-service/src evaluation-service/src
 COPY ticket-intake-service/pom.xml ticket-intake-service/
+COPY api-gateway/pom.xml api-gateway/
 RUN mvn clean package -pl evaluation-service -am -DskipTests
 
 # Собираем конкретный модуль

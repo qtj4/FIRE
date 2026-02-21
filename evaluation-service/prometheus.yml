@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'fire-monitor'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'evaluation-service'
+    static_configs:
+      - targets: ['evaluation-service:8092']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+
+  - job_name: 'ticket-intake-service'
+    static_configs:
+      - targets: ['ticket-intake-service:8081']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s

@@ -184,8 +184,12 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fire
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - fire-network
     restart: unless-stopped
@@ -210,7 +214,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fire
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
       SPRING_JPA_SHOW_SQL: "false"
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"

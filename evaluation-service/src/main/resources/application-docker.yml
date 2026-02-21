@@ -19,9 +19,12 @@ spring:
       max-lifetime: ${DB_MAX_LIFETIME:1200000}
       connection-timeout: ${DB_CONNECTION_TIMEOUT:20000}
     
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
   jpa:
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:none}
     show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
       hibernate:
@@ -45,28 +48,26 @@ spring:
           min-idle: ${REDIS_POOL_MIN_IDLE:5}
           max-wait: ${REDIS_POOL_MAX_WAIT:2000ms}
 
-kafka:
-  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
-  consumer:
-    group-id: ${KAFKA_CONSUMER_GROUP_ID:evaluation-service-group-${INSTANCE_ID:default}}
-    auto-offset-reset: earliest
-    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-    properties:
-      spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto
-      spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.TicketContext
-      max.poll.records: ${KAFKA_MAX_POLL_RECORDS:100}
-      fetch.min.bytes: ${KAFKA_FETCH_MIN_BYTES:1}
-      fetch.max.wait.ms: ${KAFKA_FETCH_MAX_WAIT:500}
-  producer:
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-    properties:
-      acks: ${KAFKA_PRODUCER_ACKS:all}
-      retries: ${KAFKA_PRODUCER_RETRIES:3}
-      batch.size: ${KAFKA_PRODUCER_BATCH_SIZE:16384}
-      linger.ms: ${KAFKA_PRODUCER_LINGER_MS:5}
-      compression.type: ${KAFKA_COMPRESSION_TYPE:lz4}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:evaluation-service-group}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto.kafka,kz.enki.fire.ticket_intake_service.dto.kafka
+        spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.kafka.EnrichedTicketEvent
+      max-poll-records: 10
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        acks: ${KAFKA_PRODUCER_ACKS:all}
+        retries: ${KAFKA_PRODUCER_RETRIES:3}
+        batch.size: ${KAFKA_PRODUCER_BATCH_SIZE:16384}
+        linger.ms: ${KAFKA_PRODUCER_LINGER_MS:5}
+        compression.type: ${KAFKA_COMPRESSION_TYPE:lz4}
 
 management:
   endpoints:

@@ -1,6 +1,7 @@
 package kz.enki.fire.ticket_intake_service.service;
 
 import kz.enki.fire.ticket_intake_service.client.N8nClient;
+import kz.enki.fire.ticket_intake_service.dto.kafka.EnrichedTicketEvent;
 import kz.enki.fire.ticket_intake_service.dto.request.TicketCsvRequest;
 import kz.enki.fire.ticket_intake_service.dto.response.GeocodingResult;
 import kz.enki.fire.ticket_intake_service.dto.response.N8nEnrichmentResponse;
@@ -11,6 +12,8 @@ import kz.enki.fire.ticket_intake_service.repository.OfficeRepository;
 import kz.enki.fire.ticket_intake_service.repository.RawTicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,10 @@ public class TicketService {
     private final OfficeRepository officeRepository;
     private final N8nClient n8nClient;
     private final GeocodingService geocodingService;
+    private final KafkaTemplate<String, EnrichedTicketEvent> kafkaTemplate;
+
+    @Value("${app.kafka.topic.incoming:incoming_tickets}")
+    private String incomingTopic;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd H:mm");
 
@@ -71,6 +78,8 @@ public class TicketService {
                 EnrichedTicket enrichedTicket = EnrichedTicket.builder()
                         .rawTicket(rawTicket)
                         .clientGuid(rawTicket.getClientGuid())
+                        .type(response != null ? response.getType() : null)
+                        .priority(response != null ? response.getPriority() : null)
                         .summary(response != null ? response.getSummary() : "Pending enrichment...")
                         .sentiment(response != null ? response.getSentiment() : null)
                         .language(response != null ? response.getLanguage() : null)
@@ -78,7 +87,12 @@ public class TicketService {
                         .longitude(geoResult != null ? geoResult.getLongitude() : null)
                         .build();
 
-                enrichedTicketRepository.save(enrichedTicket);
+                enrichedTicket = enrichedTicketRepository.save(enrichedTicket);
+
+                kafkaTemplate.send(incomingTopic, EnrichedTicketEvent.builder()
+                        .enrichedTicketId(enrichedTicket.getId())
+                        .build());
+                log.info("Sent enriched ticket {} to Kafka", enrichedTicket.getId());
             } catch (Exception e) {
                 log.error("Failed to process ticket for client GUID: {}", req.getClientGuid(), e);
             }

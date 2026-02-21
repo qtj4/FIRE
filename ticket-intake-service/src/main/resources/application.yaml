@@ -1,6 +1,13 @@
 spring:
   application:
     name: ticket-intake-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:4444}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:1111/fire}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -18,6 +25,11 @@ spring:
 
 server:
   port: 8082
+
+app:
+  kafka:
+    topic:
+      incoming: ${KAFKA_TOPIC_INCOMING:incoming_tickets}
 
 n8n:
   url: ${N8N_URL:http://localhost}
