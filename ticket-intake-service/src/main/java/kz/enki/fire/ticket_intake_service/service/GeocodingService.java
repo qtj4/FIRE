@@ -1,14 +1,10 @@
 package kz.enki.fire.ticket_intake_service.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import kz.enki.fire.ticket_intake_service.dto.response.GeocodingResult;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -26,8 +22,11 @@ public class GeocodingService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${geocoding.photon.url:https://photon.komoot.io/api/}")
-    private String photonUrl;
+    @Value("${geocoding.positionstack.api-key:18d8b4d34ff9e61b974e3d3c2e7ba730}")
+    private String apiKey;
+
+    @Value("${geocoding.positionstack.url:http://api.positionstack.com/v1/forward}")
+    private String positionstackUrl;
 
     public GeocodingResult geocode(Map<String, String> addressComponents) {
         String fullAddress = addressComponents.values().stream()
@@ -40,23 +39,23 @@ public class GeocodingService {
         }
 
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(photonUrl)
-                    .queryParam("q", fullAddress)
+            String url = UriComponentsBuilder.fromHttpUrl(positionstackUrl)
+                    .queryParam("access_key", apiKey)
+                    .queryParam("query", fullAddress)
                     .queryParam("limit", 1)
                     .toUriString();
 
-            log.info("Geocoding via Photon: {}", fullAddress);
+            log.info("Geocoding via Positionstack: {}", fullAddress);
 
-            ResponseEntity<PhotonResponse> response = restTemplate.getForEntity(url, PhotonResponse.class);
-            PhotonResponse body = response.getBody();
+            ResponseEntity<PositionstackResponse> response = restTemplate.getForEntity(url, PositionstackResponse.class);
+            PositionstackResponse body = response.getBody();
 
-            if (body != null && body.getFeatures() != null && !body.getFeatures().isEmpty()) {
-                List<Double> coords = body.getFeatures().get(0).getGeometry().getCoordinates();
-                // Photon returns [lon, lat]
-                log.info("Found coordinates: lon={}, lat={}", coords.get(0), coords.get(1));
+            if (body != null && body.getData() != null && !body.getData().isEmpty()) {
+                PositionstackData result = body.getData().get(0);
+                log.info("Found coordinates for {}: lat={}, lon={}", fullAddress, result.getLatitude(), result.getLongitude());
                 return new GeocodingResult(
-                        BigDecimal.valueOf(coords.get(1)), // lat
-                        BigDecimal.valueOf(coords.get(0))  // lon
+                        BigDecimal.valueOf(result.getLatitude()),
+                        BigDecimal.valueOf(result.getLongitude())
                 );
             } else {
                 log.warn("No results found for: {}", fullAddress);
@@ -70,19 +69,15 @@ public class GeocodingService {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class PhotonResponse {
-        private List<Feature> features;
+    private static class PositionstackResponse {
+        private List<PositionstackData> data;
     }
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class Feature {
-        private Geometry geometry;
-    }
-
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class Geometry {
-        private List<Double> coordinates;
+    private static class PositionstackData {
+        private double latitude;
+        private double longitude;
+        private String label;
     }
 }

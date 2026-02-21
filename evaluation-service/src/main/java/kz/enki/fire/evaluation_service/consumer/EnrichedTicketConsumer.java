@@ -23,7 +23,7 @@ public class EnrichedTicketConsumer {
             return;
         }
         try {
-            assignmentService.assignManager(event.getEnrichedTicketId());
+            assignmentService.assignManager(event);
         } catch (Exception e) {
             log.error("Failed to assign manager for ticket {}", event.getEnrichedTicketId(), e);
         }

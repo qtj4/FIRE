@@ -1,5 +1,7 @@
 package kz.enki.fire.evaluation_service.service;
 
+import kz.enki.fire.evaluation_service.dto.kafka.EnrichedTicketEvent;
+import kz.enki.fire.evaluation_service.mapper.EnrichedTicketMapper;
 import kz.enki.fire.evaluation_service.model.EnrichedTicket;
 import kz.enki.fire.evaluation_service.model.Manager;
 import kz.enki.fire.evaluation_service.model.Office;
@@ -25,14 +27,19 @@ public class AssignmentService {
     private final EnrichedTicketRepository enrichedTicketRepository;
     private final OfficeRepository officeRepository;
     private final ManagerRepository managerRepository;
+    private final EnrichedTicketMapper enrichedTicketMapper;
 
     private static final Set<String> ASTANA_ALIASES = Set.of("астана", "astana", "нур-султан", "nur-sultan");
     private static final Set<String> ALMATY_ALIASES = Set.of("алматы", "almaty", "алма-ата", "alma-ata");
 
     @Transactional
-    public void assignManager(Long enrichedTicketId) {
+    public void assignManager(EnrichedTicketEvent event) {
+        Long enrichedTicketId = event.getEnrichedTicketId();
         EnrichedTicket ticket = enrichedTicketRepository.findById(enrichedTicketId)
-                .orElseThrow(() -> new IllegalArgumentException("Enriched ticket not found: " + enrichedTicketId));
+                .orElseGet(() -> {
+                    log.info("Ticket {} not found, creating from event (CQRS projection)", enrichedTicketId);
+                    return enrichedTicketMapper.toEntity(event);
+                });
 
         if (ticket.getAssignedManager() != null) {
             log.info("Ticket {} already assigned to manager {}", enrichedTicketId, ticket.getAssignedManager().getFullName());

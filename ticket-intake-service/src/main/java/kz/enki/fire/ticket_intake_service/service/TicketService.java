@@ -5,15 +5,14 @@ import kz.enki.fire.ticket_intake_service.dto.kafka.EnrichedTicketEvent;
 import kz.enki.fire.ticket_intake_service.dto.request.TicketCsvRequest;
 import kz.enki.fire.ticket_intake_service.dto.response.GeocodingResult;
 import kz.enki.fire.ticket_intake_service.dto.response.N8nEnrichmentResponse;
+import kz.enki.fire.ticket_intake_service.mapper.EnrichedTicketMapper;
 import kz.enki.fire.ticket_intake_service.model.EnrichedTicket;
 import kz.enki.fire.ticket_intake_service.model.RawTicket;
+import kz.enki.fire.ticket_intake_service.producer.EnrichedTicketProducer;
 import kz.enki.fire.ticket_intake_service.repository.EnrichedTicketRepository;
-import kz.enki.fire.ticket_intake_service.repository.OfficeRepository;
 import kz.enki.fire.ticket_intake_service.repository.RawTicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,13 +29,10 @@ import java.util.UUID;
 public class TicketService {
     private final RawTicketRepository rawTicketRepository;
     private final EnrichedTicketRepository enrichedTicketRepository;
-    private final OfficeRepository officeRepository;
     private final N8nClient n8nClient;
     private final GeocodingService geocodingService;
-    private final KafkaTemplate<String, EnrichedTicketEvent> kafkaTemplate;
-
-    @Value("${app.kafka.topic.incoming:incoming_tickets}")
-    private String incomingTopic;
+    private final EnrichedTicketProducer enrichedTicketProducer;
+    private final EnrichedTicketMapper enrichedTicketMapper;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd H:mm");
 
@@ -63,15 +59,11 @@ public class TicketService {
                 N8nEnrichmentResponse response = n8nClient.enrichTicket(rawTicket);
 
                 Map<String, String> addressMap = new LinkedHashMap<>();
-                if (response != null && response.getGeo_normalized() != null) {
-                    addressMap.put("full", response.getGeo_normalized());
-                } else {
-                    addressMap.put("country", rawTicket.getCountry());
-                    addressMap.put("region", rawTicket.getRegion());
-                    addressMap.put("city", rawTicket.getCity());
-                    addressMap.put("street", rawTicket.getStreet());
-                    addressMap.put("house", rawTicket.getHouseNumber());
-                }
+                addressMap.put("country", rawTicket.getCountry());
+                addressMap.put("region", rawTicket.getRegion());
+                addressMap.put("city", rawTicket.getCity());
+                addressMap.put("street", rawTicket.getStreet());
+                addressMap.put("house", rawTicket.getHouseNumber());
 
                 GeocodingResult geoResult = geocodingService.geocode(addressMap);
 
@@ -89,10 +81,8 @@ public class TicketService {
 
                 enrichedTicket = enrichedTicketRepository.save(enrichedTicket);
 
-                kafkaTemplate.send(incomingTopic, EnrichedTicketEvent.builder()
-                        .enrichedTicketId(enrichedTicket.getId())
-                        .build());
-                log.info("Sent enriched ticket {} to Kafka", enrichedTicket.getId());
+                EnrichedTicketEvent event = enrichedTicketMapper.toEvent(enrichedTicket);
+                enrichedTicketProducer.sendEnrichedTicketEvent(event);
             } catch (Exception e) {
                 log.error("Failed to process ticket for client GUID: {}", req.getClientGuid(), e);
             }
