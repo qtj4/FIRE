@@ -67,3 +67,41 @@ export interface InsightsResponse {
     detail: string;
   }>;
 }
+
+export interface ManagerProfile {
+  id: string;
+  fullName: string;
+  role: string;
+  office: string;
+  department: string;
+  status: 'online' | 'offline' | string;
+  email: string;
+  phone: string;
+  shift: string;
+  languages: string[];
+  skills: string[];
+  stats: {
+    assignedToday: number;
+    inProgress: number;
+    slaBreaches: number;
+    avgHandleTimeMin: number;
+  };
+}
+
+export type IntakeDataset = 'offices' | 'managers' | 'tickets';
+
+export interface IntakeResponse {
+  status: string;
+  message: string;
+  processedCount: number;
+  failedCount: number;
+}
+
+export interface CsvUploadRecord extends IntakeResponse {
+  id: string;
+  dataset: IntakeDataset;
+  endpoint: string;
+  fileName: string;
+  uploadedAt: string;
+  durationMs: number;
+}
