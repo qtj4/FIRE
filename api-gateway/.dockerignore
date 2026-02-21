@@ -1,0 +1,14 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml

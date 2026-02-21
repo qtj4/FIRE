@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "9000:9000"
+    environment:
+      - API_GATEWAY_PORT=9000
+      - GATEWAY_USE_DIRECT_URLS=true
+      - TICKET_INTAKE_SERVICE_URL=http://ticket-intake-service:8081
+      - EVALUATION_SERVICE_URL=http://evaluation-service:8082
+    networks:
+      - fire-network
+
+  ticket-intake-service:
+    build:
+      context: ..
+      dockerfile: ticket-intake-service/Dockerfile
+    container_name: ticket-intake-service
+    ports:
+      - "8081:8081"
+    networks:
+      - fire-network
+
+  evaluation-service:
+    build:
+      context: ..
+      dockerfile: evaluation-service/Dockerfile
+    container_name: evaluation-service
+    ports:
+      - "8082:8082"
+    networks:
+      - fire-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fire-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - fire-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fire-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - fire-network
+
+networks:
+  fire-network:
+    driver: bridge
