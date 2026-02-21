@@ -3,9 +3,9 @@ version: '4.2'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: enki-postgres
+    container_name: fire-postgres
     environment:
-      POSTGRES_DB: enki
+      POSTGRES_DB: fire
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -18,7 +18,7 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
-    container_name: enki-zookeeper
+    container_name: fire-zookeeper
     environment:
       - ZOOKEEPER_CLIENT_PORT=2181
       - ZOOKEEPER_TICK_TIME=2000
@@ -29,7 +29,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: enki-kafka
+    container_name: fire-kafka
     depends_on:
       - zookeeper
     ports:
@@ -58,7 +58,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: enki-redis
+    container_name: fire-redis
     command: redis-server --requirepass ${REDIS_PWD:-jEdlwhz2wOA67lsK}
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -102,15 +102,15 @@ services:
     entrypoint: >
       /bin/sh -c "
       /usr/bin/mc alias set local http://minio:9000 qt-portal-user k0q2WapvIm2I7Mki;
-      /usr/bin/mc mb local/enki --ignore-existing;
-      /usr/bin/mc mb local/enki-tmp --ignore-existing;
-      /usr/bin/mc version enable local/enki;
+      /usr/bin/mc mb local/fire --ignore-existing;
+      /usr/bin/mc mb local/fire-tmp --ignore-existing;
+      /usr/bin/mc version enable local/fire;
       echo 'MinIO buckets created and configured';
       tail -f /dev/null
       "
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.7
-    container_name: enki-keycloak
+    container_name: fire-keycloak
     command: start-dev
     environment:
       KEYCLOAK_ADMIN: admin
@@ -136,12 +136,31 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - GENERIC_TIMEZONE=Asia/Qyzylorda
+      - TZ=Asia/Qyzylorda
+      # чтобы не ругался на "не https" при локалке
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+
 volumes:
   postgres_data:
   redis_data:
   minio-data:
     driver: local
   keycloak_data:
+  n8n_data:
 
 networks:
   reference-network:
