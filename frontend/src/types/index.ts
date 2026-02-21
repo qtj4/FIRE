@@ -13,15 +13,25 @@ export type Language = 'RU' | 'KZ' | 'ENG' | string;
 
 export interface Ticket {
   id: string;
+  clientId?: string;
+  gender?: 'Муж' | 'Жен' | string;
+  birthDate?: string;
   segment: Segment;
   description: string;
   type: TicketType;
   priority: number;
+  attachments?: string[];
+  country?: string;
+  region?: string;
   city?: string;
+  street?: string;
+  house?: string;
   office?: string;
   language?: Language;
   sentiment?: Sentiment;
   summary?: string;
+  latitude?: number;
+  longitude?: number;
   assignedManager?: string;
   createdAt?: string;
 }

@@ -3,8 +3,11 @@ import {
   Alert,
   Box,
   Chip,
+  Divider,
+  Drawer,
   FormControl,
   InputLabel,
+  IconButton,
   MenuItem,
   Pagination,
   Paper,
@@ -18,6 +21,7 @@ import {
   TextField,
   Typography
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { PageShell } from '@/components/PageShell';
 import { fetchTickets } from '@/services/tickets';
 import type { Ticket } from '@/types';
@@ -39,6 +43,7 @@ export function TicketList() {
   const [type, setType] = useState('all');
   const [sentiment, setSentiment] = useState('all');
   const [query, setQuery] = useState('');
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,6 +103,24 @@ export function TicketList() {
   useEffect(() => {
     setPage(1);
   }, [segment, type, sentiment, query]);
+
+  const formatDate = (value?: string, withTime = false) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString(
+      'ru-RU',
+      withTime ? { dateStyle: 'medium', timeStyle: 'short' } : { dateStyle: 'medium' }
+    );
+  };
+
+  const formatValue = (value?: string | number) =>
+    value === null || value === undefined || value === '' ? '—' : String(value);
+
+  const coords =
+    selectedTicket && selectedTicket.latitude !== undefined && selectedTicket.longitude !== undefined
+      ? `${selectedTicket.latitude.toFixed(5)}, ${selectedTicket.longitude.toFixed(5)}`
+      : '—';
 
   return (
     <PageShell
@@ -191,7 +214,12 @@ export function TicketList() {
               </TableHead>
               <TableBody>
                 {paginated.map((ticket) => (
-                  <TableRow key={ticket.id} hover>
+                  <TableRow
+                    key={ticket.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedTicket(ticket)}
+                  >
                     <TableCell sx={{ fontWeight: 600 }}>{ticket.id}</TableCell>
                     <TableCell>
                       <Chip
@@ -250,6 +278,113 @@ export function TicketList() {
           </>
         )}
       </Paper>
+
+      <Drawer
+        anchor="right"
+        open={Boolean(selectedTicket)}
+        onClose={() => setSelectedTicket(null)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 420, md: 480 }, p: 3 } }}
+      >
+        {selectedTicket ? (
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+              <Box>
+                <Typography variant="overline" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
+                  Обращение
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  {selectedTicket.id}
+                </Typography>
+                <Stack direction="row" spacing={1} mt={1} alignItems="center" flexWrap="wrap">
+                  <Chip size="small" label={selectedTicket.segment} />
+                  <Chip size="small" variant="outlined" label={`${selectedTicket.priority}/10`} />
+                  {selectedTicket.sentiment ? <Chip size="small" label={selectedTicket.sentiment} /> : null}
+                  {selectedTicket.language ? <Chip size="small" label={selectedTicket.language} /> : null}
+                </Stack>
+              </Box>
+              <IconButton aria-label="close" onClick={() => setSelectedTicket(null)}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+
+            <Divider />
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Клиент
+              </Typography>
+              <Typography variant="body2">GUID клиента: {formatValue(selectedTicket.clientId)}</Typography>
+              <Typography variant="body2">Пол: {formatValue(selectedTicket.gender)}</Typography>
+              <Typography variant="body2">Дата рождения: {formatDate(selectedTicket.birthDate)}</Typography>
+              <Typography variant="body2">Сегмент: {formatValue(selectedTicket.segment)}</Typography>
+            </Stack>
+
+            <Divider />
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Обращение и AI-анализ
+              </Typography>
+              <Typography variant="body2">Тип: {formatValue(selectedTicket.type)}</Typography>
+              <Typography variant="body2">Тональность: {formatValue(selectedTicket.sentiment)}</Typography>
+              <Typography variant="body2">Приоритет: {formatValue(selectedTicket.priority)}</Typography>
+              <Typography variant="body2">Язык: {formatValue(selectedTicket.language)}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Описание
+              </Typography>
+              <Typography variant="body2">{formatValue(selectedTicket.description)}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, mt: 1 }}>
+                Summary и рекомендация
+              </Typography>
+              <Typography variant="body2">{formatValue(selectedTicket.summary)}</Typography>
+            </Stack>
+
+            <Divider />
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Адрес и гео-нормализация
+              </Typography>
+              <Typography variant="body2">Страна: {formatValue(selectedTicket.country)}</Typography>
+              <Typography variant="body2">Область: {formatValue(selectedTicket.region)}</Typography>
+              <Typography variant="body2">Населенный пункт: {formatValue(selectedTicket.city)}</Typography>
+              <Typography variant="body2">Улица: {formatValue(selectedTicket.street)}</Typography>
+              <Typography variant="body2">Дом: {formatValue(selectedTicket.house)}</Typography>
+              <Typography variant="body2">Координаты: {coords}</Typography>
+            </Stack>
+
+            <Divider />
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Назначение
+              </Typography>
+              <Typography variant="body2">Офис: {formatValue(selectedTicket.office)}</Typography>
+              <Typography variant="body2">Менеджер: {formatValue(selectedTicket.assignedManager)}</Typography>
+              <Typography variant="body2">
+                Дата обращения: {formatDate(selectedTicket.createdAt, true)}
+              </Typography>
+            </Stack>
+
+            <Divider />
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Вложения
+              </Typography>
+              {selectedTicket.attachments && selectedTicket.attachments.length > 0 ? (
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {selectedTicket.attachments.map((item) => (
+                    <Chip key={item} size="small" variant="outlined" label={item} />
+                  ))}
+                </Stack>
+              ) : (
+                <Typography variant="body2">—</Typography>
+              )}
+            </Stack>
+          </Stack>
+        ) : null}
+      </Drawer>
     </PageShell>
   );
 }
