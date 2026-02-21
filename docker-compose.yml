@@ -13,7 +13,6 @@ services:
       - "1111:5432"
     volumes:
       - fire_postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - fire-network
 
@@ -114,6 +113,23 @@ services:
       tail -f /dev/null
       "
 
+
+  ticket-intake-service:
+    build:
+      context: .
+      dockerfile: ticket-intake-service/Dockerfile
+    container_name: fire-ticket-intake
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://fire-postgres:5432/fire
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      - postgres
+    networks:
+      - fire-network
+    restart: unless-stopped
 
   frontend:
     build:

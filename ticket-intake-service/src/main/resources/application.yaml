@@ -2,9 +2,9 @@ spring:
   application:
     name: ticket-intake-service
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/fire_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:1111/fire}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -14,8 +14,13 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   liquibase:
-    change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
 
 server:
   port: 8081
+
+logging:
+  level:
+    root: INFO
+    liquibase: DEBUG
+    org.springframework.boot.autoconfigure.liquibase: DEBUG
