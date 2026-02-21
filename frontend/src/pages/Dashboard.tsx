@@ -21,6 +21,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { PageShell } from '@/components/PageShell';
+import { ScrollReveal } from '@/components/ScrollReveal';
 import { StatCard } from '@/components/StatCard';
 import { fetchDashboardStats, fetchInsights, fetchServiceHealth } from '@/services/stats';
 import type { DashboardStats, InsightsResponse, ServiceHealth } from '@/types';
@@ -300,42 +301,27 @@ export function Dashboard() {
       ) : (
         <Stack spacing={3}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <StatCard
-                label="Всего обращений"
-                value={stats.totals.tickets.toLocaleString('ru-RU')}
-                helper="За текущую смену"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <StatCard
-                label="Средний приоритет"
-                value={stats.totals.avgPriority.toFixed(1)}
-                helper="По шкале 1-10"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <StatCard
-                label="Доля VIP"
-                value={`${Math.round(stats.totals.vipShare * 100)}%`}
-                helper="От всех обращений"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <StatCard
-                label="В маршрутизации"
-                value={stats.totals.inRouting.toString()}
-                helper="Ожидают назначения"
-              />
-            </Grid>
+            {[
+              { label: 'Всего обращений', value: stats.totals.tickets.toLocaleString('ru-RU'), helper: 'За текущую смену' },
+              { label: 'Средний приоритет', value: stats.totals.avgPriority.toFixed(1), helper: 'По шкале 1-10' },
+              { label: 'Доля VIP', value: `${Math.round(stats.totals.vipShare * 100)}%`, helper: 'От всех обращений' },
+              { label: 'В маршрутизации', value: stats.totals.inRouting.toString(), helper: 'Ожидают назначения' }
+            ].map((card, i) => (
+              <Grid item xs={12} md={3} key={card.label}>
+                <ScrollReveal delay={i * 0.08} enableHover>
+                  <StatCard label={card.label} value={card.value} helper={card.helper} />
+                </ScrollReveal>
+              </Grid>
+            ))}
           </Grid>
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
-                  Статус системы
-                </Typography>
+              <ScrollReveal delay={0.1} enableHover>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                    Статус системы
+                  </Typography>
                 <Stack spacing={1}>
                   <Chip
                     size="small"
@@ -347,13 +333,15 @@ export function Dashboard() {
                   <Typography variant="body2">В очереди: {health?.unassignedTotal ?? 0}</Typography>
                   <Typography variant="body2">Срочные в очереди: {health?.highPriorityUnassigned ?? 0}</Typography>
                 </Stack>
-              </Paper>
+                </Paper>
+              </ScrollReveal>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
-                  Языки обращений
-                </Typography>
+              <ScrollReveal delay={0.15} enableHover>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                    Языки обращений
+                  </Typography>
                 <Stack spacing={1.2}>
                   {stats.byLanguage.map((item) => (
                     <Box key={item.language} sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -364,13 +352,15 @@ export function Dashboard() {
                     </Box>
                   ))}
                 </Stack>
-              </Paper>
+                </Paper>
+              </ScrollReveal>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
-                  Рекомендации
-                </Typography>
+              <ScrollReveal delay={0.2} enableHover>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>
+                    Рекомендации
+                  </Typography>
                 <Stack spacing={1.1}>
                   {(insights?.items ?? []).slice(0, 3).map((item) => (
                     <Box key={item.title}>
@@ -383,19 +373,18 @@ export function Dashboard() {
                     </Box>
                   ))}
                 </Stack>
-              </Paper>
+                </Paper>
+              </ScrollReveal>
             </Grid>
           </Grid>
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={7}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  География обращений
-                </Typography>
+              <ScrollReveal delay={0.1} enableHover>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    География обращений
+                  </Typography>
                 <Bar
                   data={byCityData}
                   options={{
@@ -409,16 +398,15 @@ export function Dashboard() {
                     }
                   }}
                 />
-              </Paper>
+                </Paper>
+              </ScrollReveal>
             </Grid>
             <Grid item xs={12} md={5}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  Тональность обращений
-                </Typography>
+              <ScrollReveal delay={0.15} enableHover>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    Тональность обращений
+                  </Typography>
                 <Box sx={{ height: 260 }}>
                   <Doughnut
                     data={bySentimentData}
@@ -431,19 +419,18 @@ export function Dashboard() {
                     }}
                   />
                 </Box>
-              </Paper>
+                </Paper>
+              </ScrollReveal>
             </Grid>
           </Grid>
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={7}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  Типы обращений
-                </Typography>
+              <ScrollReveal delay={0.1} enableHover>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    Типы обращений
+                  </Typography>
                 <Bar
                   data={byTypeData}
                   options={{
@@ -459,43 +446,44 @@ export function Dashboard() {
                   }}
                 />
               </Paper>
+              </ScrollReveal>
             </Grid>
             <Grid item xs={12} md={5}>
-              <Paper
-                elevation={0}
-                sx={panelSx}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  Распределение по офисам
-                </Typography>
-                <Stack spacing={1.5}>
-                  {stats.byOffice.map((item) => (
-                    <Box key={item.office} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">{item.office}</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {item.count}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              </Paper>
+              <ScrollReveal delay={0.15} enableHover>
+                <Paper elevation={0} sx={panelSx}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                    Распределение по офисам
+                  </Typography>
+                  <Stack spacing={1.5}>
+                    {stats.byOffice.map((item) => (
+                      <Box key={item.office} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">{item.office}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {item.count}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Paper>
+              </ScrollReveal>
             </Grid>
           </Grid>
 
-          <Paper
-            elevation={0}
-            sx={{
-              ...panelSx,
-              background:
-                'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,251,248,0.9) 70%, rgba(253,247,237,0.9) 100%)'
-            }}
-          >
-            <Stack spacing={2}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    AI-ассистент
-                  </Typography>
+          <ScrollReveal delay={0.2} enableHover>
+            <Paper
+              elevation={0}
+              sx={{
+                ...panelSx,
+                background:
+                  'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,251,248,0.9) 70%, rgba(253,247,237,0.9) 100%)'
+              }}
+            >
+              <Stack spacing={2}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      AI-ассистент
+                    </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
                     Задайте вопрос, и ассистент соберет виджеты под запрос.
                   </Typography>
@@ -649,6 +637,7 @@ export function Dashboard() {
               </Stack>
             </Stack>
           </Paper>
+          </ScrollReveal>
         </Stack>
       )}
     </PageShell>
