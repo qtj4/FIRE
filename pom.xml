@@ -17,6 +17,7 @@
 
     <modules>
         <module>ticket-intake-service</module>
+        <module>evaluation-service</module>
     </modules>
 
     <properties>
