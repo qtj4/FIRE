@@ -25,8 +25,8 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
-TICKET_WEBHOOK_URL = os.getenv("TICKET_WEBHOOK_URL")
-TICKET_API_KEY = os.getenv("TICKET_API_KEY")
+TICKET_WEBHOOK_URL = "http://2.133.130.153:5678/webhook/ticket"
+TICKET_API_KEY = "reqres_bfea449a338147e6aff41a56a3067e4e"
 TICKET_CSV_TEMPLATE = os.getenv(
     "TICKET_CSV_TEMPLATE",
     "a154a8e6-439d-4a7b-86e8-56ef94b18ee2,Мужской,1999-12-31 0:00,{text},data_error.png,VIP,Казахстан,Восточно-Казахстанская,Усть-Каменогорск  ул. Казахстан,30",
@@ -222,10 +222,20 @@ def send_ticket_webhook(transcript: str) -> Optional[int]:
             timeout=20,
         )
         response.raise_for_status()
-        logger.info("Ticket webhook delivered: %s", response.status_code)
+        body_preview = response.text[:1000] if response.text else ""
+        logger.info("Ticket webhook delivered: %s body=%s", response.status_code, body_preview)
         return response.status_code
     except requests.RequestException as exc:
-        logger.error("Ticket webhook failed: %s", exc)
+        error_body = ""
+        if getattr(exc, "response", None) is not None:
+            try:
+                error_body = exc.response.text[:1000]
+            except Exception:
+                error_body = ""
+        if error_body:
+            logger.error("Ticket webhook failed: %s body=%s", exc, error_body)
+        else:
+            logger.error("Ticket webhook failed: %s", exc)
         return None
 
 
