@@ -2,20 +2,26 @@ from __future__ import annotations
 
 import os
 import logging
+import tempfile
 from typing import Optional
 
 import requests
-from flask import Flask, Response, request
+from flask import Flask, Response, jsonify, request
+from openai import OpenAI
 
 app = Flask(__name__)
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("twilio-voice")
 
-BACKEND_URL = "https://google.com"
+BACKEND_URL = os.getenv("BACKEND_URL") or "http://localhost:5000/receive-recording"
 MAX_RECORD_SECONDS = int(os.getenv("MAX_RECORD_SECONDS", "60"))
 VOICE_LANG = os.getenv("VOICE_LANG", "ru-RU")
 VOICE_NAME = os.getenv("VOICE_NAME", "alice")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
 
 
 @app.route("/process-call", methods=["POST"])
@@ -51,27 +57,130 @@ def process_recording() -> Response:
         mp3_url,
     )
 
-    send_to_backend(mp3_url, recording_sid=recording_sid, from_number=from_number)
+    transcript = send_to_backend(
+        mp3_url,
+        recording_sid=recording_sid,
+        from_number=from_number,
+        recording_duration=recording_duration,
+    )
+    if transcript:
+        logger.info("Transcript: %s", transcript)
     return Response("Recording processed", status=200)
 
 
-def send_to_backend(recording_url: str, recording_sid: Optional[str], from_number: Optional[str]) -> None:
+def send_to_backend(
+    recording_url: str,
+    recording_sid: Optional[str],
+    from_number: Optional[str],
+    recording_duration: Optional[str],
+) -> Optional[str]:
     if not BACKEND_URL:
         logger.info("BACKEND_URL not set, skipping forward")
-        return
+        return None
 
     payload = {
         "audio_url": recording_url,
         "recording_sid": recording_sid,
         "from": from_number,
+        "recording_duration": recording_duration,
     }
 
     try:
         response = requests.post(BACKEND_URL, data=payload, timeout=10)
         response.raise_for_status()
         logger.info("Recording forwarded successfully")
+        try:
+            data = response.json()
+        except ValueError:
+            return None
+        return data.get("transcript")
     except requests.RequestException as exc:
         logger.error("Failed to forward recording: %s", exc)
+        return None
+
+
+@app.route("/receive-recording", methods=["POST"])
+def receive_recording() -> Response:
+    """Receive recording URL, run speech-to-text, and return the transcript."""
+    data = request.get_json(silent=True) if request.is_json else None
+    form_data = data or request.form
+
+    audio_url = form_data.get("audio_url")
+    recording_sid = form_data.get("recording_sid")
+    from_number = form_data.get("from")
+    recording_duration = form_data.get("recording_duration")
+
+    if not audio_url:
+        return jsonify({"error": "audio_url is required"}), 400
+
+    normalized_url = normalize_audio_url(audio_url)
+    logger.info("Downloading recording from %s", normalized_url)
+
+    try:
+        file_path = download_recording(normalized_url)
+    except requests.RequestException as exc:
+        logger.error("Failed to download recording: %s", exc)
+        return jsonify({"error": "failed to download recording"}), 502
+
+    try:
+        transcript = transcribe_audio(file_path)
+    except RuntimeError as exc:
+        logger.error("Transcription error: %s", exc)
+        return jsonify({"error": str(exc)}), 501
+    except Exception as exc:  # noqa: BLE001 - surface unexpected errors as 502
+        logger.error("Transcription failed: %s", exc)
+        return jsonify({"error": "transcription failed"}), 502
+    finally:
+        try:
+            os.remove(file_path)
+        except OSError:
+            logger.warning("Failed to remove temp file %s", file_path)
+
+    return jsonify(
+        {
+            "transcript": transcript,
+            "recording_sid": recording_sid,
+            "from": from_number,
+            "recording_duration": recording_duration,
+            "audio_url": normalized_url,
+        }
+    )
+
+
+def normalize_audio_url(audio_url: str) -> str:
+    if audio_url.endswith((".mp3", ".wav", ".m4a", ".webm", ".mp4")):
+        return audio_url
+    return f"{audio_url}.mp3"
+
+
+def download_recording(audio_url: str) -> str:
+    auth = None
+    if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+        auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+    response = requests.get(audio_url, auth=auth, stream=True, timeout=20)
+    response.raise_for_status()
+
+    suffix = os.path.splitext(audio_url)[-1] or ".mp3"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            if chunk:
+                tmp.write(chunk)
+        return tmp.name
+
+
+def transcribe_audio(file_path: str) -> str:
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is not set")
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    with open(file_path, "rb") as audio_file:
+        transcription = client.audio.transcriptions.create(
+            model=OPENAI_TRANSCRIBE_MODEL,
+            file=audio_file,
+        )
+    text = getattr(transcription, "text", None)
+    return text if text is not None else str(transcription)
 
 
 @app.route("/health", methods=["GET"])

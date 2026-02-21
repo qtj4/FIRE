@@ -240,10 +240,14 @@ services:
     ports:
       - "5000:5000"
     environment:
-      BACKEND_URL: ${TWILIO_BACKEND_URL:-}
+      BACKEND_URL: ${TWILIO_BACKEND_URL:-http://twilio-voice:5000/receive-recording}
       MAX_RECORD_SECONDS: ${TWILIO_MAX_RECORD_SECONDS:-60}
       VOICE_LANG: ${TWILIO_VOICE_LANG:-ru-RU}
       VOICE_NAME: ${TWILIO_VOICE_NAME:-alice}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-mini-transcribe}
       PORT: "5000"
     networks:
       - fire-network
