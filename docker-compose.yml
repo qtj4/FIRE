@@ -9,6 +9,7 @@
 #   7777  minio API  8888  minio console
 #   8081  ticket-intake-service
 #   8082  evaluation-service
+#   5000  twilio-voice
 #   8090  kafka-ui
 #   9091  prometheus
 #   3001  grafana (admin / admin123)
@@ -229,6 +230,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    restart: unless-stopped
+
+  twilio-voice:
+    build:
+      context: .
+      dockerfile: Dockerfile.twilio
+    container_name: fire-twilio-voice
+    ports:
+      - "5000:5000"
+    environment:
+      BACKEND_URL: ${TWILIO_BACKEND_URL:-}
+      MAX_RECORD_SECONDS: ${TWILIO_MAX_RECORD_SECONDS:-60}
+      VOICE_LANG: ${TWILIO_VOICE_LANG:-ru-RU}
+      VOICE_NAME: ${TWILIO_VOICE_NAME:-alice}
+      PORT: "5000"
+    networks:
+      - fire-network
     restart: unless-stopped
 
   prometheus:
