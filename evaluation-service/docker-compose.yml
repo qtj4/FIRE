@@ -3,14 +3,14 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: evaluation-postgres
+    container_name: evaluation-postgres-${INSTANCE_ID:-prod}
     environment:
       POSTGRES_DB: fire
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "1111:5432"
+      - "543${PG_PORT_SUFFIX:-3}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -57,17 +57,17 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
-    container_name: evaluation-kafka
+    container_name: evaluation-kafka-${INSTANCE_ID:-prod}
     depends_on:
       zookeeper:
         condition: service_healthy
     ports:
-      - "4444:9093"
+      - "909${KAFKA_PORT_SUFFIX:-4}:9093"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:4444
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:909${KAFKA_PORT_SUFFIX:-4}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
