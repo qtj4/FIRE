@@ -301,6 +301,22 @@ services:
       - fire-network
     restart: unless-stopped
 
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - GENERIC_TIMEZONE=Asia/Qyzylorda
+      - TZ=Asia/Qyzylorda
+      # чтобы не ругался на "не https" при локалке
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - fire_n8n_data:/home/node/.n8n
+
 volumes:
   fire_postgres_data:
   fire_redis_data:

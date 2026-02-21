@@ -25,22 +25,21 @@ public class EnrichedTicket {
     @Column(name = "client_guid")
     private UUID clientGuid;
 
+    private String type;
+
+    private Integer priority;
+
     @Column(columnDefinition = "TEXT")
     private String summary;
 
-    @Column(name = "detected_language")
-    private String detectedLanguage;
+    private String language;
 
     private String sentiment;
 
     private BigDecimal latitude;
+
     private BigDecimal longitude;
 
-    @ManyToOne
-    @JoinColumn(name = "assigned_office_id")
-    private Office assignedOffice;
-
-    @Column(name = "enriched_at")
     private LocalDateTime enrichedAt;
 
     @PrePersist
