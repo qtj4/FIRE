@@ -129,6 +129,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EVALUATION_BASE_URL: http://evaluation-service:8092
     depends_on:
       postgres:
         condition: service_healthy

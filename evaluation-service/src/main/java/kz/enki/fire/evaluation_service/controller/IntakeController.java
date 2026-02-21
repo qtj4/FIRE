@@ -37,4 +37,9 @@ public class IntakeController {
     public TicketAssignmentResponse createAndAssignTicket(@RequestBody EnrichedTicketAssignRequest request) {
         return httpTicketAssignmentService.createAndAssign(request);
     }
+
+    @PostMapping("/tickets/{enrichedTicketId}/assign")
+    public TicketAssignmentResponse assignExistingTicket(@PathVariable Long enrichedTicketId) {
+        return httpTicketAssignmentService.assignExisting(enrichedTicketId);
+    }
 }

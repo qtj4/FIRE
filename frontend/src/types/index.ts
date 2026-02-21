@@ -95,6 +95,20 @@ export interface IntakeResponse {
   message: string;
   processedCount: number;
   failedCount: number;
+  results?: TicketProcessingResult[];
+}
+
+export interface TicketProcessingResult {
+  clientGuid: string;
+  rawTicketId?: number;
+  enrichedTicketId?: number;
+  status: string;
+  message: string;
+  assignedOfficeName?: string;
+  assignedManagerName?: string;
+  priority?: number;
+  language?: string;
+  type?: string;
 }
 
 export interface CsvUploadRecord extends IntakeResponse {
