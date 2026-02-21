@@ -1,0 +1,41 @@
+:root {
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  color-scheme: light;
+  --ink-900: #0a1512;
+  --ink-700: #1f2e29;
+  --surface-100: #f8f6f0;
+  --surface-200: #f1ece2;
+  --surface-300: #e5ddd0;
+  --accent-600: #2f7f6b;
+  --accent-500: #3c9781;
+  --accent-400: #59b69a;
+  --gold-500: #c78f2c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink-900);
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(89, 182, 154, 0.15), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(199, 143, 44, 0.18), transparent 40%),
+    linear-gradient(135deg, #f7f3ea 0%, #f2efe8 45%, #f5f2ec 100%);
+  background-attachment: fixed;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(47, 127, 107, 0.2);
+}
