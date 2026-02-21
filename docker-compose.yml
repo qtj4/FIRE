@@ -179,7 +179,7 @@ services:
       dockerfile: ticket-intake-service/Dockerfile
     container_name: fire-ticket-intake
     ports:
-      - "8081:8081"
+      - "8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fire
       SPRING_DATASOURCE_USERNAME: postgres
