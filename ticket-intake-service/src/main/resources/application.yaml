@@ -2,7 +2,19 @@ spring:
   application:
     name: ticket-intake-service
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:4444}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    properties:
+      sasl:
+        jaas:
+          config: ${KAFKA_JAAS_CONFIG:org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin";}
+        mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+      security:
+        protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_PLAINTEXT}
+    admin:
+      properties:
+        sasl.jaas.config: ${KAFKA_JAAS_CONFIG:org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin";}
+        sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+        security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_PLAINTEXT}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer

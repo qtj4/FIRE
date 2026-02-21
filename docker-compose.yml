@@ -66,6 +66,9 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "3333:2181"
+    volumes:
+      - fire_zookeeper_data:/var/lib/zookeeper/data
+      - fire_zookeeper_log:/var/lib/zookeeper/log
     networks:
       - fire-network
     healthcheck:
@@ -82,16 +85,29 @@ services:
       zookeeper:
         condition: service_healthy
     ports:
-      - "4444:9092"
-      - "5555:29092"
+      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: fire-zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: SASL_PLAINTEXT://:9092,PLAINTEXT://:29092
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://localhost:9092,PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf"
+      KAFKA_ZOOKEEPER_SASL_ENABLED: "false"
+      ZOOKEEPER_SASL_ENABLED: "false"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_DELETE_TOPIC_ENABLE: "true"
+    volumes:
+      - ./kafka_jaas.conf:/etc/kafka/kafka_jaas.conf
+      - fire_kafka_data:/var/lib/kafka/data
     networks:
       - fire-network
     healthcheck:
@@ -249,21 +265,21 @@ services:
       - fire-network
     restart: unless-stopped
 
-#  n8n:
-#    image: n8nio/n8n:latest
-#    ports:
-#      - "5678:5678"
-#    environment:
-#      - N8N_HOST=localhost
-#      - N8N_PORT=5678
-#      - N8N_PROTOCOL=http
-#      - NODE_ENV=production
-#      - GENERIC_TIMEZONE=Asia/Qyzylorda
-#      - TZ=Asia/Qyzylorda
-#      # чтобы не ругался на "не https" при локалке
-#      - N8N_SECURE_COOKIE=false
-#    volumes:
-#      - fire_n8n_data:/home/node/.n8n
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - GENERIC_TIMEZONE=Asia/Qyzylorda
+      - TZ=Asia/Qyzylorda
+      # чтобы не ругался на "не https" при локалке
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - fire_n8n_data:/home/node/.n8n
 
 volumes:
   fire_postgres_data:
@@ -273,6 +289,9 @@ volumes:
   fire_n8n_data:
   fire_prometheus_data:
   fire_grafana_data:
+  fire_zookeeper_data:
+  fire_zookeeper_log:
+  fire_kafka_data:
 
 
 networks:
