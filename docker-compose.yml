@@ -115,26 +115,16 @@ services:
       "
 
 
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: fire-n8n
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fire-frontend
     ports:
-      - "9999:5678"
-    environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin@gmail.com
-      - N8N_BASIC_AUTH_PASSWORD=aruaq_123!
-      - N8N_HOST=localhost
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - NODE_ENV=production
-      - GENERIC_TIMEZONE=Asia/Qyzylorda
-      - N8N_SECURE_COOKIE=false
-    volumes:
-      - fire_n8n_data:/home/node/.n8n
+      - "3111:80"
     networks:
       - fire-network
-
+    restart: unless-stopped
 
 volumes:
   fire_postgres_data:
