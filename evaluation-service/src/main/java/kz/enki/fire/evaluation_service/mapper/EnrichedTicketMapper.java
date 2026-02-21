@@ -13,4 +13,7 @@ public interface EnrichedTicketMapper {
     @Mapping(target = "assignedOffice", ignore = true)
     @Mapping(target = "assignedManager", ignore = true)
     EnrichedTicket toEntity(EnrichedTicketEvent event);
+
+    @Mapping(target = "enrichedTicketId", source = "id")
+    EnrichedTicketEvent toEvent(EnrichedTicket entity);
 }

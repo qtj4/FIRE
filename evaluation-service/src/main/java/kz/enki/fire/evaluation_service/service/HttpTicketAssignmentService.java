@@ -1,7 +1,9 @@
 package kz.enki.fire.evaluation_service.service;
 
+import kz.enki.fire.evaluation_service.dto.kafka.EnrichedTicketEvent;
 import kz.enki.fire.evaluation_service.dto.request.EnrichedTicketAssignRequest;
 import kz.enki.fire.evaluation_service.dto.response.TicketAssignmentResponse;
+import kz.enki.fire.evaluation_service.mapper.EnrichedTicketMapper;
 import kz.enki.fire.evaluation_service.model.EnrichedTicket;
 import kz.enki.fire.evaluation_service.model.RawTicket;
 import kz.enki.fire.evaluation_service.repository.EnrichedTicketRepository;
@@ -17,6 +19,7 @@ public class HttpTicketAssignmentService {
     private final RawTicketRepository rawTicketRepository;
     private final EnrichedTicketRepository enrichedTicketRepository;
     private final AssignmentService assignmentService;
+    private final EnrichedTicketMapper enrichedTicketMapper;
 
     @Transactional
     public TicketAssignmentResponse createAndAssign(EnrichedTicketAssignRequest request) {
@@ -46,7 +49,8 @@ public class HttpTicketAssignmentService {
                 .build();
 
         EnrichedTicket saved = enrichedTicketRepository.save(ticket);
-        assignmentService.assignManager(saved.getId());
+        EnrichedTicketEvent event = enrichedTicketMapper.toEvent(saved);
+        assignmentService.assignManager(event);
 
         EnrichedTicket assigned = enrichedTicketRepository.findById(saved.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Enriched ticket not found after save: " + saved.getId()));
