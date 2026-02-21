@@ -1,0 +1,85 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: evaluation-service
+    
+  datasource:
+    url: jdbc:postgresql://2.133.130.153:1111/fire
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        
+  data:
+    redis:
+      host: 2.133.130.153
+      port: 2222
+      password: fire123
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+kafka:
+  bootstrap-servers: 2.133.130.153:4444
+  consumer:
+    group-id: evaluation-service-group
+    auto-offset-reset: earliest
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    properties:
+      spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto
+      spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.TicketContext
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+resilience4j:
+  retry:
+    instances:
+      aiService:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - java.lang.RuntimeException
+          - java.util.concurrent.TimeoutException
+  circuitbreaker:
+    instances:
+      aiService:
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 30s
+        sliding-window-type: count_based
+        sliding-window-size: 10
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    kz.enki.fire.evaluation_service: WARN
+    org.springframework.kafka: WARN
+    org.hibernate.SQL: WARN
+    io.github.resilience4j: INFO

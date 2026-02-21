@@ -1,0 +1,79 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: evaluation-service
+    
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/fire}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:fire123}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+kafka:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+  consumer:
+    group-id: evaluation-service-group
+    auto-offset-reset: earliest
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    properties:
+      spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto
+      spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.TicketContext
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,prometheus,metrics}
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:always}
+  metrics:
+    export:
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true}
+
+logging:
+  level:
+    root: ${LOGGING_LEVEL_ROOT:INFO}
+    kz.enki.fire.evaluation_service: ${LOGGING_LEVEL_KZ_ENKI_FIRE_EVALUATION_SERVICE:INFO}
+    org.springframework.kafka: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_KAFIA:INFO}
+    org.hibernate.SQL: WARN
+
+app:
+  kafka:
+    topics:
+      incoming: incoming_tickets
+      outgoing: final_distribution
+      dlt: incoming_tickets_dlt
+  redis:
+    load-prefix: "manager:load:"
+  matching:
+    fallback-enabled: true
+    max-retry-attempts: 3
