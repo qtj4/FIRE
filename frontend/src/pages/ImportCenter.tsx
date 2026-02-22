@@ -19,13 +19,19 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { PageShell } from '@/components/PageShell';
 import { ScrollReveal } from '@/components/ScrollReveal';
-import { fetchIntakeResults, uploadTicketsCsv } from '@/services/intake';
-import type { IntakeResponse, TicketProcessingResult } from '@/types';
+import { fetchIntakeResults, uploadManagersCsv, uploadOfficesCsv, uploadTicketsCsv } from '@/services/intake';
+import type { IntakeDataset, IntakeResponse, TicketProcessingResult } from '@/types';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 60000;
+const DATASET_LABEL: Record<IntakeDataset, string> = {
+  tickets: 'Тикеты',
+  offices: 'Офисы',
+  managers: 'Менеджеры'
+};
 
 export function ImportCenter() {
+  const [dataset, setDataset] = useState<IntakeDataset>('tickets');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IntakeResponse | null>(null);
@@ -41,6 +47,16 @@ export function ImportCenter() {
     setError(null);
   };
 
+  const handleDatasetChange = (next: IntakeDataset) => {
+    if (next === dataset) return;
+    setDataset(next);
+    setFile(null);
+    setResult(null);
+    setError(null);
+    setPolling(false);
+    pollingGuidsRef.current = [];
+  };
+
   const handleUpload = async () => {
     if (!file) return;
     setLoading(true);
@@ -48,13 +64,23 @@ export function ImportCenter() {
     setResult(null);
     setPolling(false);
     try {
-      const data = await uploadTicketsCsv(file);
+      let data: IntakeResponse;
+      if (dataset === 'tickets') {
+        data = await uploadTicketsCsv(file);
+      } else if (dataset === 'offices') {
+        data = await uploadOfficesCsv(file);
+      } else {
+        data = await uploadManagersCsv(file);
+      }
+
       setResult(data);
-      const inQueue = data.results?.filter((r) => r.status === 'IN_QUEUE') ?? [];
-      if (inQueue.length > 0) {
-        pollingGuidsRef.current = (data.results ?? []).map((r) => String(r.clientGuid));
-        pollUntilRef.current = Date.now() + POLL_TIMEOUT_MS;
-        setPolling(true);
+      if (dataset === 'tickets') {
+        const inQueue = data.results?.filter((r) => r.status === 'IN_QUEUE') ?? [];
+        if (inQueue.length > 0) {
+          pollingGuidsRef.current = (data.results ?? []).map((r) => String(r.clientGuid));
+          pollUntilRef.current = Date.now() + POLL_TIMEOUT_MS;
+          setPolling(true);
+        }
       }
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'message' in err ? String((err as Error).message) : 'Ошибка загрузки';
@@ -65,7 +91,7 @@ export function ImportCenter() {
   };
 
   useEffect(() => {
-    if (!polling || pollingGuidsRef.current.length === 0) return;
+    if (dataset !== 'tickets' || !polling || pollingGuidsRef.current.length === 0) return;
     if (Date.now() > pollUntilRef.current) {
       setPolling(false);
       return;
@@ -89,9 +115,9 @@ export function ImportCenter() {
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(t);
-  }, [polling]);
+  }, [dataset, polling]);
 
-  const results = result?.results ?? [];
+  const results = dataset === 'tickets' ? result?.results ?? [] : [];
   const successCount = results.filter((r) => r.status === 'ASSIGNED' || r.status === 'ENRICHED' || r.status?.toLowerCase().includes('assign')).length;
   const inQueueCount = results.filter((r) => r.status === 'IN_QUEUE').length;
   const failCount = results.filter((r) => r.status === 'FAILED').length;
@@ -113,10 +139,33 @@ export function ImportCenter() {
             }}
           >
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-              Загрузка тикетов (CSV)
+              Загрузка данных (CSV)
             </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+              {(['tickets', 'offices', 'managers'] as IntakeDataset[]).map((item) => (
+                <Button
+                  key={item}
+                  size="small"
+                  variant={dataset === item ? 'contained' : 'outlined'}
+                  onClick={() => handleDatasetChange(item)}
+                  sx={
+                    dataset === item
+                      ? { bgcolor: '#2f7f6b', '&:hover': { bgcolor: '#215546' } }
+                      : {
+                          borderColor: 'rgba(47, 127, 107, 0.5)',
+                          color: '#1f2e29',
+                          '&:hover': { borderColor: 'rgba(47, 127, 107, 0.8)', bgcolor: 'rgba(47, 127, 107, 0.06)' }
+                        }
+                  }
+                >
+                  {DATASET_LABEL[item]}
+                </Button>
+              ))}
+            </Stack>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              CSV → ticket-intake-service → N8N (обогащение) → Kafka (очередь incoming_tickets) → evaluation-service (назначение офиса и менеджера) → результат в таблице ниже. При необходимости откройте Kafka UI для просмотра очередей.
+              {dataset === 'tickets'
+                ? 'CSV → ticket-intake-service → N8N (обогащение) → Kafka (incoming_tickets) → evaluation-service (назначение) → статус в таблице.'
+                : `Загрузка справочника "${DATASET_LABEL[dataset]}" в evaluation-service.`}
             </Typography>
             <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
               <Button
@@ -149,7 +198,7 @@ export function ImportCenter() {
                   '&:hover': { bgcolor: '#215546' }
                 }}
               >
-                {loading ? 'Отправка…' : 'Загрузить'}
+                {loading ? 'Отправка…' : `Загрузить ${DATASET_LABEL[dataset].toLowerCase()}`}
               </Button>
             </Stack>
             {loading && <LinearProgress sx={{ mt: 2, borderRadius: 1 }} />}
@@ -178,7 +227,7 @@ export function ImportCenter() {
             >
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Результаты импорта
+                  Результаты импорта: {DATASET_LABEL[dataset]}
                 </Typography>
                 <Chip
                   label={result.status}
@@ -189,20 +238,26 @@ export function ImportCenter() {
                 <Typography variant="body2" color="text.secondary">
                   Обработано: {result.processedCount}, ошибок: {result.failedCount}
                 </Typography>
-                {successCount > 0 && (
+                {dataset === 'tickets' && successCount > 0 && (
                   <Chip label={`Назначено: ${successCount}`} size="small" sx={{ bgcolor: 'rgba(47, 127, 107, 0.2)' }} />
                 )}
-                {inQueueCount > 0 && (
+                {dataset === 'tickets' && inQueueCount > 0 && (
                   <Chip label={polling ? `В очереди: ${inQueueCount} (обновление…)` : `В очереди: ${inQueueCount}`} size="small" color="info" variant="outlined" />
                 )}
-                {failCount > 0 && (
+                {dataset === 'tickets' && failCount > 0 && (
                   <Chip label={`Ошибки: ${failCount}`} size="small" color="error" variant="outlined" />
                 )}
-                <Link href={kafkaUiUrl} target="_blank" rel="noopener noreferrer" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.875rem' }}>
-                  Kafka UI <OpenInNewIcon sx={{ fontSize: 16 }} />
-                </Link>
+                {dataset === 'tickets' && (
+                  <Link href={kafkaUiUrl} target="_blank" rel="noopener noreferrer" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.875rem' }}>
+                    Kafka UI <OpenInNewIcon sx={{ fontSize: 16 }} />
+                  </Link>
+                )}
               </Stack>
-              {results.length > 0 ? (
+              {dataset !== 'tickets' ? (
+                <Alert severity={result.status === 'SUCCESS' ? 'success' : 'warning'}>
+                  {result.message || `Импорт "${DATASET_LABEL[dataset]}" завершен.`}
+                </Alert>
+              ) : results.length > 0 ? (
                 <Box sx={{ overflowX: 'auto' }}>
                   <Table size="small" stickyHeader>
                     <TableHead>

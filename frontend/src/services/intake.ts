@@ -1,10 +1,32 @@
 import type { IntakeResponse, TicketProcessingResult } from '@/types';
-import { intakeApi } from './api';
+import { api, intakeApi } from './api';
 
 export async function uploadTicketsCsv(file: File): Promise<IntakeResponse> {
   const formData = new FormData();
   formData.append('file', file);
   const { data } = await intakeApi.post<IntakeResponse>('/api/v1/intake/tickets', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return data;
+}
+
+export async function uploadOfficesCsv(file: File): Promise<IntakeResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<IntakeResponse>('/api/evaluation/intake/offices', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return data;
+}
+
+export async function uploadManagersCsv(file: File): Promise<IntakeResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<IntakeResponse>('/api/evaluation/intake/managers', formData, {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
