@@ -19,11 +19,8 @@ export default defineConfig({
       '/api/evaluation': {
         target: 'http://localhost:8092',
         changeOrigin: true
-      },
-      '/api/assistant': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
       }
     }
   }
 });
+
