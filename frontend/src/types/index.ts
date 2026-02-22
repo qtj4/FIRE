@@ -83,6 +83,30 @@ export interface InsightsResponse {
   }>;
 }
 
+export interface AssistantQueryHistoryItem {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AssistantWidgetSpec {
+  kind: 'bar' | 'doughnut' | 'list' | 'stat' | string;
+  source?: string;
+  title: string;
+  orientation?: 'horizontal' | 'vertical' | string;
+  topN?: number;
+  helper?: string;
+}
+
+export interface AssistantQueryRequest {
+  query: string;
+  history?: AssistantQueryHistoryItem[];
+}
+
+export interface AssistantQueryResponse {
+  reply: string;
+  widgets: AssistantWidgetSpec[];
+}
+
 export interface ManagerProfile {
   id: string;
   fullName: string;
