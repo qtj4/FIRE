@@ -68,9 +68,6 @@ public class TicketService {
             RawTicket rawTicket = saveRawTicket(req);
 
             N8nEnrichmentResponse response = n8nClient.enrichTicket(rawTicket);
-            if (response == null) {
-                log.warn("n8n enrichment is empty for clientGuid={}, using fallback fields", rawTicket.getClientGuid());
-            }
             String summary = (response != null && response.getSummary() != null && !response.getSummary().isBlank())
                     ? response.getSummary()
                     : "Pending enrichment...";

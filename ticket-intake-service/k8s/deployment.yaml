@@ -66,21 +66,17 @@ spec:
             - name: IDEMPOTENCY_TTL_SECONDS
               value: "86400"
             - name: TICKET_ASYNC_CORE_POOL_SIZE
-              value: "8"
+              value: "24"
             - name: TICKET_ASYNC_MAX_POOL_SIZE
-              value: "16"
+              value: "64"
             - name: TICKET_ASYNC_QUEUE_CAPACITY
-              value: "500"
+              value: "2000"
             - name: N8N_URL
               value: "http://2.133.130.153"
             - name: N8N_PORT
               value: "5678"
             - name: N8N_WEBHOOK_PATH
               value: "/webhook/ticket"
-            - name: N8N_MAX_CONCURRENT_REQUESTS
-              value: "8"
-            - name: N8N_MAX_CONCURRENT_WAIT_MS
-              value: "30000"
             - name: GEOCODING_CUSTOM_URL
               value: "http://2.133.130.153:5000/geocode"
           resources:
