@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Configuration;
                 contact = @Contact(name = "FIRE Team")
         ),
         servers = {
+                @Server(url = "/", description = "Текущий хост (тот же, с которого открыт Swagger)"),
                 @Server(url = "http://localhost:8082", description = "Local")
         }
 )
