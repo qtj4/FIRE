@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -16,15 +17,32 @@ public class OfficeService {
 
     @Transactional
     public void saveOffices(List<OfficeCsvRequest> requests) {
-        List<Office> offices = requests.stream()
-                .filter(req -> req.getName() != null && !req.getName().isBlank())
-                .map(req -> Office.builder()
-                        .name(req.getName())
-                        .address(req.getAddress())
-                        .latitude(req.getLatitude())
-                        .longitude(req.getLongitude())
-                        .build())
-                .toList();
+        List<Office> offices = new ArrayList<>();
+        for (int i = 0; i < requests.size(); i++) {
+            OfficeCsvRequest req = requests.get(i);
+            String name = req.resolveName();
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+
+            String address = req.resolveAddress();
+            if (address == null || address.isBlank()) {
+                int csvLine = i + 2; // + header
+                throw new IllegalArgumentException(
+                        "Office CSV validation failed at line " + csvLine
+                                + ": address is required for office '" + name + "'. "
+                                + "Use header Адрес or address"
+                );
+            }
+
+            offices.add(Office.builder()
+                    .name(name)
+                    .address(address)
+                    .latitude(req.resolveLatitude())
+                    .longitude(req.resolveLongitude())
+                    .build());
+        }
+
         officeRepository.saveAll(offices);
     }
 }

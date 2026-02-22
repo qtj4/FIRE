@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,15 +17,30 @@ public class ManagerService {
 
     @Transactional
     public void saveManagers(List<ManagerCsvRequest> requests) {
-        List<Manager> managers = requests.stream()
-                .map(req -> Manager.builder()
-                        .fullName(req.getFullName())
-                        .position(req.getPosition())
-                        .officeName(req.getOfficeName())
-                        .skills(req.getSkills())
-                        .activeTicketsCount(req.getActiveTicketsCount() != null ? req.getActiveTicketsCount() : 0)
-                        .build())
-                .collect(Collectors.toList());
+        List<Manager> managers = new ArrayList<>();
+
+        for (int i = 0; i < requests.size(); i++) {
+            ManagerCsvRequest req = requests.get(i);
+            String fullName = req.resolveFullName();
+            if (fullName == null || fullName.isBlank()) {
+                int csvLine = i + 2; // + header
+                throw new IllegalArgumentException(
+                        "Manager CSV validation failed at line " + csvLine
+                                + ": required column with manager name is empty. "
+                                + "Use one of headers: ФИО, full_name, fullName, name"
+                );
+            }
+
+            Integer activeTickets = req.resolveActiveTicketsCount();
+            managers.add(Manager.builder()
+                    .fullName(fullName)
+                    .position(req.resolvePosition())
+                    .officeName(req.resolveOfficeName())
+                    .skills(req.resolveSkills())
+                    .activeTicketsCount(activeTickets != null ? activeTickets : 0)
+                    .build());
+        }
+
         managerRepository.saveAll(managers);
     }
 }

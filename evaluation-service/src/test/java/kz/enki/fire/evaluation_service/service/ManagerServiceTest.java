@@ -14,6 +14,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,5 +62,40 @@ class ManagerServiceTest {
         ArgumentCaptor<List<Manager>> captor = ArgumentCaptor.forClass(List.class);
         verify(managerRepository).saveAll(captor.capture());
         assertThat(captor.getValue().get(0).getActiveTicketsCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("использует alias-поля из англоязычного CSV")
+    void saveManagers_usesAliases() {
+        ManagerCsvRequest req = new ManagerCsvRequest();
+        req.setFullNameAltSnake("John Doe");
+        req.setPositionAlt("Senior specialist");
+        req.setOfficeNameAltSnake("Karaganda");
+        req.setSkillsAlt("ENG,KZ");
+        req.setActiveTicketsCountAltSnake(3);
+
+        managerService.saveManagers(List.of(req));
+
+        ArgumentCaptor<List<Manager>> captor = ArgumentCaptor.forClass(List.class);
+        verify(managerRepository).saveAll(captor.capture());
+        Manager manager = captor.getValue().get(0);
+        assertThat(manager.getFullName()).isEqualTo("John Doe");
+        assertThat(manager.getPosition()).isEqualTo("Senior specialist");
+        assertThat(manager.getOfficeName()).isEqualTo("Karaganda");
+        assertThat(manager.getSkills()).isEqualTo("ENG,KZ");
+        assertThat(manager.getActiveTicketsCount()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("бросает валидационную ошибку, если имя менеджера пустое")
+    void saveManagers_throwsIfNameMissing() {
+        ManagerCsvRequest req = new ManagerCsvRequest();
+        req.setOfficeName("Астана");
+
+        assertThatThrownBy(() -> managerService.saveManagers(List.of(req)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("required column with manager name is empty");
+
+        verifyNoInteractions(managerRepository);
     }
 }

@@ -110,6 +110,27 @@ class CsvParserServiceTest {
             assertThat(requests.get(0).getSkills()).isEqualTo("RU VIP");
             assertThat(requests.get(0).getActiveTicketsCount()).isEqualTo(5);
         }
+
+        @Test
+        @DisplayName("парсит CSV с BOM + ';' + англоязычными заголовками")
+        void managerCsv_withBomAndSemicolon() {
+            String csv = "\uFEFFfull_name;position;office_name;skills;active_tickets_count\n"
+                    + "John Doe;Senior specialist;Karaganda;ENG,KZ;3";
+            MockMultipartFile file = new MockMultipartFile("file", "managers.csv", "text/csv", csv.getBytes(StandardCharsets.UTF_8));
+
+            IntakeResponse response = csvParserService.parseAndProcess(file, ManagerCsvRequest.class, managerProcessor);
+
+            assertThat(response.getStatus()).isEqualTo("SUCCESS");
+            assertThat(response.getProcessedCount()).isEqualTo(1);
+
+            ArgumentCaptor<List<ManagerCsvRequest>> captor = ArgumentCaptor.forClass(List.class);
+            verify(managerProcessor).accept(captor.capture());
+            List<ManagerCsvRequest> requests = captor.getValue();
+            assertThat(requests).hasSize(1);
+            assertThat(requests.get(0).resolveFullName()).isEqualTo("John Doe");
+            assertThat(requests.get(0).resolveOfficeName()).isEqualTo("Karaganda");
+            assertThat(requests.get(0).resolveActiveTicketsCount()).isEqualTo(3);
+        }
     }
 
     @Test

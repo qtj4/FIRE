@@ -124,14 +124,15 @@ public class IntakeController {
 
     private static TicketProcessingResultDto toResultDto(UUID clientGuid, AssignmentResultMessage msg) {
         if (msg != null) {
+            String status = msg.getStatus() != null ? msg.getStatus() : "ASSIGNED";
             return TicketProcessingResultDto.builder()
                     .clientGuid(clientGuid)
                     .rawTicketId(msg.getRawTicketId())
                     .enrichedTicketId(msg.getEnrichedTicketId())
-                    .status(msg.getStatus() != null ? msg.getStatus() : "ASSIGNED")
+                    .status(status)
                     .assignedOfficeName(msg.getAssignedOfficeName())
                     .assignedManagerName(msg.getAssignedManagerName())
-                    .message("Назначен офис и менеджер")
+                    .message(resolveStatusMessage(status))
                     .build();
         }
         return TicketProcessingResultDto.builder()
@@ -215,6 +216,10 @@ public class IntakeController {
                 .longitude(null)
                 .build();
         enrichedTicketProducer.sendIncomingTicket(message);
+        assignmentResultStore.put(AssignmentResultMessage.builder()
+                .clientGuid(clientGuid)
+                .status("IN_QUEUE")
+                .build());
 
         PutInQueueResponse response = PutInQueueResponse.builder()
                 .clientGuid(clientGuid)
@@ -222,5 +227,17 @@ public class IntakeController {
                 .build();
         idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_QUEUE, idempotencyKey, requestHash, response);
         return response;
+    }
+
+    private static String resolveStatusMessage(String status) {
+        if (status == null) {
+            return "Статус неизвестен";
+        }
+        return switch (status.toUpperCase()) {
+            case "IN_QUEUE" -> "В очереди, ожидание evaluation-service";
+            case "UNASSIGNED" -> "Офис/менеджер пока не назначены";
+            case "FAILED" -> "Ошибка обработки";
+            default -> "Назначен офис и менеджер";
+        };
     }
 }

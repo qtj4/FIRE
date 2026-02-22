@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -72,5 +74,18 @@ class OfficeServiceTest {
         assertThat(office.getAddress()).isEqualTo("пр. Абая 1");
         assertThat(office.getLatitude()).isEqualByComparingTo("43.2389");
         assertThat(office.getLongitude()).isEqualByComparingTo("76.9457");
+    }
+
+    @Test
+    @DisplayName("бросает валидационную ошибку, если у офиса нет адреса")
+    void saveOffices_throwsIfAddressMissing() {
+        OfficeCsvRequest req = new OfficeCsvRequest();
+        req.setName("Алматы");
+
+        assertThatThrownBy(() -> officeService.saveOffices(List.of(req)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("address is required");
+
+        verifyNoInteractions(officeRepository);
     }
 }

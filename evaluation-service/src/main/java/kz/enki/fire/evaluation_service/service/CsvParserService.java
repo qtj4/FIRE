@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.function.Consumer;
@@ -28,10 +29,20 @@ public class CsvParserService {
         }
 
         try (Reader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            CsvToBean<T> csvToBean = new CsvToBeanBuilder<T>(reader)
+            String normalizedCsv = readNormalizedCsv(reader);
+            if (normalizedCsv.isBlank()) {
+                return IntakeResponse.builder()
+                        .status("ERROR")
+                        .message("File is empty")
+                        .build();
+            }
+
+            char separator = detectSeparator(normalizedCsv);
+            CsvToBean<T> csvToBean = new CsvToBeanBuilder<T>(new StringReader(normalizedCsv))
                     .withType(clazz)
                     .withIgnoreLeadingWhiteSpace(true)
                     .withIgnoreEmptyLine(true)
+                    .withSeparator(separator)
                     .withThrowExceptions(false)
                     .build();
 
@@ -60,5 +71,36 @@ public class CsvParserService {
                     .message("Failed to parse CSV: " + e.getMessage())
                     .build();
         }
+    }
+
+    private static String readNormalizedCsv(Reader reader) throws Exception {
+        BufferedReader bufferedReader = reader instanceof BufferedReader
+                ? (BufferedReader) reader
+                : new BufferedReader(reader);
+        StringBuilder content = new StringBuilder();
+        String line;
+        boolean first = true;
+        while ((line = bufferedReader.readLine()) != null) {
+            if (first) {
+                first = false;
+                line = stripBom(line);
+            }
+            content.append(line).append('\n');
+        }
+        return content.toString();
+    }
+
+    private static char detectSeparator(String csv) {
+        String header = csv.lines().findFirst().orElse("");
+        long semicolons = header.chars().filter(ch -> ch == ';').count();
+        long commas = header.chars().filter(ch -> ch == ',').count();
+        return semicolons > commas ? ';' : ',';
+    }
+
+    private static String stripBom(String line) {
+        if (line != null && !line.isEmpty() && line.charAt(0) == '\uFEFF') {
+            return line.substring(1);
+        }
+        return line;
     }
 }
