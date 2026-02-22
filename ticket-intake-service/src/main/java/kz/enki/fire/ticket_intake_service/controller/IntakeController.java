@@ -51,9 +51,13 @@ public class IntakeController {
             @RequestParam("file") MultipartFile file,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey
     ) {
+        String requestHash = idempotencyService.isEnabledForKey(idempotencyKey)
+                ? idempotencyService.hashMultipartFile(file)
+                : null;
         var cachedResponse = idempotencyService.getCachedResponse(
                 IDEMPOTENCY_SCOPE_TICKETS,
                 idempotencyKey,
+                requestHash,
                 IntakeResponse.class
         );
         if (cachedResponse.isPresent()) {
@@ -71,7 +75,7 @@ public class IntakeController {
                     .failedCount(parseResult.getFailedCount())
                     .results(List.of())
                     .build();
-            idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, response);
+            idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, requestHash, response);
             return response;
         }
         if (parseResult.getItems().isEmpty()) {
@@ -82,7 +86,7 @@ public class IntakeController {
                     .failedCount(parseResult.getFailedCount())
                     .results(List.of())
                     .build();
-            idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, response);
+            idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, requestHash, response);
             return response;
         }
 
@@ -98,7 +102,7 @@ public class IntakeController {
                 .failedCount(parseResult.getFailedCount())
                 .results(results)
                 .build();
-        idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, response);
+        idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, requestHash, response);
         return response;
     }
 
@@ -168,9 +172,13 @@ public class IntakeController {
             @RequestBody PutInQueueRequest request,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey
     ) {
+        String requestHash = idempotencyService.isEnabledForKey(idempotencyKey)
+                ? idempotencyService.hashObject(request)
+                : null;
         var cachedResponse = idempotencyService.getCachedResponse(
                 IDEMPOTENCY_SCOPE_QUEUE,
                 idempotencyKey,
+                requestHash,
                 PutInQueueResponse.class
         );
         if (cachedResponse.isPresent()) {
@@ -196,7 +204,7 @@ public class IntakeController {
                 .clientGuid(clientGuid)
                 .message("Тикет отправлен в очередь incoming_tickets. evaluation-service обработает и вернёт результат в final_distribution.")
                 .build();
-        idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_QUEUE, idempotencyKey, response);
+        idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_QUEUE, idempotencyKey, requestHash, response);
         return response;
     }
 }

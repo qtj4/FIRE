@@ -13,8 +13,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @ConditionalOnProperty(name = "app.kafka.enabled", havingValue = "true")
@@ -38,27 +42,9 @@ public class IncomingTicketHandler {
             return;
         }
 
-        RawTicket rawTicket = rawTicketRepository.findByClientGuid(message.getClientGuid())
-                .orElseGet(() -> {
-                    RawTicket newRaw = RawTicket.builder()
-                            .clientGuid(message.getClientGuid())
-                            .build();
-                    return rawTicketRepository.save(newRaw);
-                });
+        RawTicket rawTicket = resolveRawTicket(message);
+        EnrichedTicket saved = upsertEnrichedTicket(rawTicket, message);
 
-        EnrichedTicket ticket = EnrichedTicket.builder()
-                .rawTicket(rawTicket)
-                .clientGuid(message.getClientGuid())
-                .type(message.getType())
-                .priority(message.getPriority())
-                .summary(message.getSummary())
-                .language(message.getLanguage())
-                .sentiment(message.getSentiment())
-                .latitude(message.getLatitude())
-                .longitude(message.getLongitude())
-                .build();
-
-        EnrichedTicket saved = enrichedTicketRepository.save(ticket);
         EnrichedTicketEvent event = enrichedTicketMapper.toEvent(saved);
         assignmentService.assignManager(event);
 
@@ -76,5 +62,57 @@ public class IncomingTicketHandler {
 
         kafkaTemplate.send(outgoingTopic, message.getClientGuid().toString(), result);
         log.info("Processed ticket clientGuid={}, enrichedId={}, status={}", message.getClientGuid(), assigned.getId(), result.getStatus());
+    }
+
+    private RawTicket resolveRawTicket(IncomingTicketMessage message) {
+        if (message.getRawTicketId() != null) {
+            return rawTicketRepository.findById(message.getRawTicketId())
+                    .orElseGet(() -> rawTicketRepository.findByClientGuid(message.getClientGuid())
+                            .orElseGet(() -> rawTicketRepository.save(RawTicket.builder()
+                                    .clientGuid(message.getClientGuid())
+                                    .build())));
+        }
+        return rawTicketRepository.findByClientGuid(message.getClientGuid())
+                .orElseGet(() -> rawTicketRepository.save(RawTicket.builder()
+                        .clientGuid(message.getClientGuid())
+                        .build()));
+    }
+
+    private EnrichedTicket upsertEnrichedTicket(RawTicket rawTicket, IncomingTicketMessage message) {
+        EnrichedTicket ticket = findExisting(rawTicket.getId(), message.getClientGuid())
+                .orElseGet(EnrichedTicket::new);
+        applyPayload(ticket, rawTicket, message);
+
+        try {
+            return enrichedTicketRepository.save(ticket);
+        } catch (DataIntegrityViolationException ex) {
+            // Unique index protects against duplicate rows during Kafka redelivery/races.
+            EnrichedTicket existing = findExisting(rawTicket.getId(), message.getClientGuid())
+                    .orElseThrow(() -> ex);
+            applyPayload(existing, rawTicket, message);
+            log.info(
+                    "Deduplicated incoming message by business key clientGuid={}, rawTicketId={}",
+                    message.getClientGuid(),
+                    rawTicket.getId()
+            );
+            return enrichedTicketRepository.save(existing);
+        }
+    }
+
+    private Optional<EnrichedTicket> findExisting(Long rawTicketId, UUID clientGuid) {
+        return enrichedTicketRepository.findByRawTicketIdAndClientGuid(rawTicketId, clientGuid)
+                .or(() -> enrichedTicketRepository.findByRawTicketId(rawTicketId));
+    }
+
+    private static void applyPayload(EnrichedTicket ticket, RawTicket rawTicket, IncomingTicketMessage message) {
+        ticket.setRawTicket(rawTicket);
+        ticket.setClientGuid(message.getClientGuid());
+        ticket.setType(message.getType());
+        ticket.setPriority(message.getPriority());
+        ticket.setSummary(message.getSummary());
+        ticket.setLanguage(message.getLanguage());
+        ticket.setSentiment(message.getSentiment());
+        ticket.setLatitude(message.getLatitude());
+        ticket.setLongitude(message.getLongitude());
     }
 }

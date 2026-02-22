@@ -9,5 +9,7 @@ import java.util.UUID;
 public interface EnrichedTicketRepository extends JpaRepository<EnrichedTicket, Long> {
     Optional<EnrichedTicket> findByRawTicketId(Long rawTicketId);
 
+    Optional<EnrichedTicket> findByRawTicketIdAndClientGuid(Long rawTicketId, UUID clientGuid);
+
     Optional<EnrichedTicket> findByClientGuid(UUID clientGuid);
 }

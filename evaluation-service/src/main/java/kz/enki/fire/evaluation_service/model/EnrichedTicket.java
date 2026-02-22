@@ -8,7 +8,15 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "enriched_tickets")
+@Table(
+        name = "enriched_tickets",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_enriched_tickets_client_guid_raw_ticket_id",
+                        columnNames = {"client_guid", "raw_ticket_id"}
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
