@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,25 +56,43 @@ public class AssignmentService {
 
         Office office = selectOffice(ticket);
         if (office == null) {
-            log.warn("No office found for ticket {}", enrichedTicketId);
+            log.warn("No office found for ticket {}, fallback to global manager pool", enrichedTicketId);
+        }
+
+        List<Manager> managerPool = findManagerPool(office);
+        if (managerPool.isEmpty()) {
+            log.warn("No managers available for ticket {}", enrichedTicketId);
             return;
         }
 
-        List<Manager> candidates = filterManagersBySkills(ticket, office.getName());
+        List<Manager> candidates = filterManagersBySkills(ticket, managerPool);
         if (candidates.isEmpty()) {
-            log.warn("No suitable managers for ticket {} in office {}", enrichedTicketId, office.getName());
-            return;
+            String lang = ticket.getLanguage() != null ? ticket.getLanguage().toUpperCase() : "RU";
+            candidates = filterManagersByLanguage(managerPool, lang);
+            if (candidates.isEmpty()) {
+                log.warn(
+                        "No strict/relaxed manager match for ticket {}, assigning by load from pool size={}",
+                        enrichedTicketId,
+                        managerPool.size()
+                );
+                candidates = managerPool;
+            }
         }
 
         Manager manager = selectByRoundRobin(candidates);
-        ticket.setAssignedOffice(office);
+        ticket.setAssignedOffice(resolveAssignedOffice(office, manager));
         ticket.setAssignedManager(manager);
         enrichedTicketRepository.save(ticket);
 
         manager.setActiveTicketsCount((manager.getActiveTicketsCount() != null ? manager.getActiveTicketsCount() : 0) + 1);
         managerRepository.save(manager);
 
-        log.info("Assigned ticket {} to manager {} in office {}", enrichedTicketId, manager.getFullName(), office.getName());
+        log.info(
+                "Assigned ticket {} to manager {} in office {}",
+                enrichedTicketId,
+                manager.getFullName(),
+                ticket.getAssignedOffice() != null ? ticket.getAssignedOffice().getName() : "UNKNOWN"
+        );
     }
 
     private Office selectOffice(EnrichedTicket ticket) {
@@ -114,17 +133,70 @@ public class AssignmentService {
         return name != null && ALMATY_ALIASES.contains(name.toLowerCase().trim());
     }
 
-    private List<Manager> filterManagersBySkills(EnrichedTicket ticket, String officeName) {
-        List<Manager> byOffice = managerRepository.findByOfficeName(officeName);
+    private List<Manager> filterManagersBySkills(EnrichedTicket ticket, List<Manager> managerPool) {
         String type = ticket.getType() != null ? ticket.getType().toLowerCase() : "";
         Integer priority = ticket.getPriority();
         String lang = ticket.getLanguage() != null ? ticket.getLanguage().toUpperCase() : "RU";
 
-        return byOffice.stream()
+        return managerPool.stream()
                 .filter(m -> hasVipIfNeeded(m, type, priority))
                 .filter(m -> hasPositionForDataChange(m, type))
                 .filter(m -> hasLanguageSkill(m, lang))
                 .collect(Collectors.toList());
+    }
+
+    private List<Manager> findManagerPool(Office office) {
+        List<Manager> allManagers = managerRepository.findAll();
+        if (allManagers.isEmpty()) {
+            return List.of();
+        }
+
+        if (office == null || office.getName() == null || office.getName().isBlank()) {
+            return allManagers;
+        }
+
+        String expectedOffice = normalizeOffice(office.getName());
+        List<Manager> byOffice = allManagers.stream()
+                .filter(m -> normalizeOffice(m.getOfficeName()).equals(expectedOffice))
+                .collect(Collectors.toList());
+
+        if (!byOffice.isEmpty()) {
+            return byOffice;
+        }
+
+        log.warn("No managers found for office '{}', fallback to global manager pool", office.getName());
+        return allManagers;
+    }
+
+    private List<Manager> filterManagersByLanguage(List<Manager> managerPool, String lang) {
+        if (lang == null || lang.isBlank() || "RU".equalsIgnoreCase(lang)) {
+            return managerPool;
+        }
+        return managerPool.stream()
+                .filter(m -> hasLanguageSkill(m, lang))
+                .collect(Collectors.toList());
+    }
+
+    private Office resolveAssignedOffice(Office selectedOffice, Manager manager) {
+        if (selectedOffice != null) {
+            return selectedOffice;
+        }
+        if (manager == null || manager.getOfficeName() == null || manager.getOfficeName().isBlank()) {
+            return null;
+        }
+
+        String expectedOffice = normalizeOffice(manager.getOfficeName());
+        return officeRepository.findAll().stream()
+                .filter(o -> normalizeOffice(o.getName()).equals(expectedOffice))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String normalizeOffice(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
     private boolean hasVipIfNeeded(Manager m, String type, Integer priority) {
