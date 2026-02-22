@@ -65,11 +65,14 @@ public class EnrichedTicketService {
                 .summary(request.getSummary())
                 .language(request.getLanguage())
                 .sentiment(request.getSentiment())
+                .geoNormalized(request.getGeoNormalized())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .build();
         EnrichedTicket saved = enrichedTicketRepository.save(ticket);
-        return toResponse(saved);
+        httpTicketAssignmentService.assignExisting(saved.getId());
+        EnrichedTicket assigned = enrichedTicketRepository.findById(saved.getId()).orElse(saved);
+        return toResponse(assigned);
     }
 
     private String deriveSegment(Integer priority) {
@@ -89,6 +92,7 @@ public class EnrichedTicketService {
         if (request.getSummary() != null) ticket.setSummary(request.getSummary());
         if (request.getLanguage() != null) ticket.setLanguage(request.getLanguage());
         if (request.getSentiment() != null) ticket.setSentiment(request.getSentiment());
+        if (request.getGeoNormalized() != null) ticket.setGeoNormalized(request.getGeoNormalized());
         if (request.getLatitude() != null) ticket.setLatitude(request.getLatitude());
         if (request.getLongitude() != null) ticket.setLongitude(request.getLongitude());
         EnrichedTicket saved = enrichedTicketRepository.save(ticket);

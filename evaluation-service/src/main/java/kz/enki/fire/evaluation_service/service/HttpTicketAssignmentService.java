@@ -44,6 +44,7 @@ public class HttpTicketAssignmentService {
                 .summary(request.getSummary())
                 .language(request.getLanguage())
                 .sentiment(request.getSentiment())
+                .geoNormalized(request.getGeoNormalized())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .build();

@@ -1,5 +1,6 @@
 package kz.enki.fire.evaluation_service.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -15,6 +16,8 @@ public class EnrichedTicketAssignRequest {
     private String summary;
     private String language;
     private String sentiment;
+    @JsonProperty("geo_normalized")
+    private String geoNormalized;
     private BigDecimal latitude;
     private BigDecimal longitude;
 
