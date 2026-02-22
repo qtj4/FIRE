@@ -2,6 +2,7 @@ package kz.enki.fire.ticket_intake_service.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import kz.enki.fire.ticket_intake_service.dto.response.GeocodingLookupResponse;
 import kz.enki.fire.ticket_intake_service.dto.response.GeocodingResult;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -22,33 +23,43 @@ public class GeocodingService {
     @Value("${geocoding.custom.url:http://2.133.130.153:5000/geocode}")
     private String geocodingUrl;
 
-    public GeocodingResult geocode(String address) {
+    public GeocodingLookupResponse lookup(String address) {
         if (address == null || address.isBlank()) {
             return null;
         }
 
         try {
             String url = UriComponentsBuilder.fromHttpUrl(geocodingUrl)
-                    .queryParam("address", address)
+                    .replaceQueryParam("address", address)
+                    .build()
+                    .encode()
                     .toUriString();
 
-            log.info("Geocoding via custom server: {}", address);
+            log.info("Geocoding lookup via 2GIS bridge: {}", address);
 
             ResponseEntity<CustomGeocodingResponse> response = restTemplate.getForEntity(url, CustomGeocodingResponse.class);
             CustomGeocodingResponse body = response.getBody();
 
             if (body != null) {
-                log.info("Found coordinates for {}: lat={}, lon={}", address, body.getLat(), body.getLon());
-                return new GeocodingResult(
-                        BigDecimal.valueOf(body.getLat()),
-                        BigDecimal.valueOf(body.getLon())
-                );
+                return GeocodingLookupResponse.builder()
+                        .query(address)
+                        .latitude(BigDecimal.valueOf(body.getLat()))
+                        .longitude(BigDecimal.valueOf(body.getLon()))
+                        .resolvedAddress(body.getAddress())
+                        .sourceUrl(body.getSourceUrl())
+                        .build();
             }
         } catch (Exception e) {
-            log.error("Geocoding error for '{}': {}", address, e.getMessage());
+            log.error("Geocoding lookup error for '{}': {}", address, e.getMessage());
         }
 
         return null;
+    }
+
+    public GeocodingResult geocode(String address) {
+        GeocodingLookupResponse lookupResponse = lookup(address);
+        if (lookupResponse == null) return null;
+        return new GeocodingResult(lookupResponse.getLatitude(), lookupResponse.getLongitude());
     }
 
     @Data

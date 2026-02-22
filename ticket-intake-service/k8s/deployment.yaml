@@ -71,6 +71,8 @@ spec:
               value: "5678"
             - name: N8N_WEBHOOK_PATH
               value: "/webhook-test/ticket"
+            - name: GEOCODING_CUSTOM_URL
+              value: "http://2.133.130.153:5000/geocode"
           resources:
             requests:
               cpu: "200m"

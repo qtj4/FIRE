@@ -160,6 +160,7 @@ services:
       N8N_PORT: ${N8N_PORT:-5678}
       N8N_WEBHOOK_PATH: ${N8N_WEBHOOK_PATH:-/webhook-test/ticket}
       N8N_API_KEY: ${N8N_API_KEY:-reqres_bfea449a338147e6aff41a56a3067e4e}
+      GEOCODING_CUSTOM_URL: ${GEOCODING_CUSTOM_URL:-http://2.133.130.153:5000/geocode}
     depends_on:
       postgres:
         condition: service_healthy

@@ -6,12 +6,14 @@ import kz.enki.fire.ticket_intake_service.dto.kafka.AssignmentResultMessage;
 import kz.enki.fire.ticket_intake_service.dto.kafka.IncomingTicketMessage;
 import kz.enki.fire.ticket_intake_service.dto.request.PutInQueueRequest;
 import kz.enki.fire.ticket_intake_service.dto.request.TicketCsvRequest;
+import kz.enki.fire.ticket_intake_service.dto.response.GeocodingLookupResponse;
 import kz.enki.fire.ticket_intake_service.dto.response.IntakeResponse;
 import kz.enki.fire.ticket_intake_service.dto.response.PutInQueueResponse;
 import kz.enki.fire.ticket_intake_service.dto.response.TicketProcessingResultDto;
 import kz.enki.fire.ticket_intake_service.producer.EnrichedTicketProducer;
 import kz.enki.fire.ticket_intake_service.service.AssignmentResultStore;
 import kz.enki.fire.ticket_intake_service.service.CsvParserService;
+import kz.enki.fire.ticket_intake_service.service.GeocodingService;
 import kz.enki.fire.ticket_intake_service.service.IdempotencyService;
 import kz.enki.fire.ticket_intake_service.service.TicketService;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,7 @@ public class IntakeController {
     private final TicketService ticketService;
     private final EnrichedTicketProducer enrichedTicketProducer;
     private final AssignmentResultStore assignmentResultStore;
+    private final GeocodingService geocodingService;
     private final IdempotencyService idempotencyService;
 
     @PostMapping("/tickets")
@@ -104,6 +107,19 @@ public class IntakeController {
                 .build();
         idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, requestHash, response);
         return response;
+    }
+
+    @GetMapping("/geocode")
+    @Operation(
+            summary = "Поиск координат по городу/адресу (2GIS)",
+            description = "Прокси на geocoding bridge. Пример: /api/v1/intake/geocode?address=Алматы"
+    )
+    public ResponseEntity<GeocodingLookupResponse> geocode(@RequestParam String address) {
+        GeocodingLookupResponse response = geocodingService.lookup(address);
+        if (response == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
     }
 
     private static TicketProcessingResultDto toResultDto(UUID clientGuid, AssignmentResultMessage msg) {
