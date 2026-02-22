@@ -15,6 +15,8 @@ import {
   Paper,
   Select,
   Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -30,8 +32,10 @@ import { fetchTickets } from '@/services/tickets';
 import type { Ticket } from '@/types';
 
 const rowsPerPage = 8;
+type QueueTab = 'all' | 'spam' | 'vip';
 
 const segmentStyles: Record<string, { bg: string; color: string }> = {
+  Spam: { bg: 'rgba(220, 38, 38, 0.14)', color: '#991b1b' },
   VIP: { bg: 'rgba(199, 143, 44, 0.2)', color: '#8b5c12' },
   Priority: { bg: 'rgba(47, 127, 107, 0.2)', color: '#215546' },
   Mass: { bg: 'rgba(31, 46, 41, 0.08)', color: '#1f2e29' }
@@ -44,6 +48,27 @@ const panelSx = {
   background: '#ffffff'
 };
 
+const isSpamTicket = (ticket: Ticket) => {
+  const typeValue = (ticket.type ?? '').toLowerCase();
+  const summaryValue = (ticket.summary ?? '').toLowerCase();
+  const descriptionValue = (ticket.description ?? '').toLowerCase();
+  return (
+    ticket.segment === 'Spam' ||
+    typeValue.includes('spam') ||
+    typeValue.includes('спам') ||
+    summaryValue.includes('spam') ||
+    summaryValue.includes('спам') ||
+    descriptionValue.includes('spam') ||
+    descriptionValue.includes('спам')
+  );
+};
+
+const isVipTicket = (ticket: Ticket) => {
+  const segmentValue = (ticket.segment ?? '').toLowerCase();
+  const typeValue = (ticket.type ?? '').toLowerCase();
+  return segmentValue === 'vip' || typeValue.includes('vip') || ticket.priority >= 8;
+};
+
 export function TicketList() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +77,7 @@ export function TicketList() {
   const [segment, setSegment] = useState('all');
   const [type, setType] = useState('all');
   const [sentiment, setSentiment] = useState('all');
+  const [queueTab, setQueueTab] = useState<QueueTab>('all');
   const [query, setQuery] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
@@ -89,11 +115,21 @@ export function TicketList() {
     () => Array.from(new Set(tickets.map((item) => item.sentiment))).filter(Boolean),
     [tickets]
   );
+  const tabCounts = useMemo(
+    () => ({
+      all: tickets.length,
+      spam: tickets.filter(isSpamTicket).length,
+      vip: tickets.filter((ticket) => !isSpamTicket(ticket) && isVipTicket(ticket)).length
+    }),
+    [tickets]
+  );
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     return tickets.filter((ticket) => {
+      if (queueTab === 'spam' && !isSpamTicket(ticket)) return false;
+      if (queueTab === 'vip' && (isSpamTicket(ticket) || !isVipTicket(ticket))) return false;
       if (segment !== 'all' && ticket.segment !== segment) return false;
       if (type !== 'all' && ticket.type !== type) return false;
       if (sentiment !== 'all' && ticket.sentiment !== sentiment) return false;
@@ -105,19 +141,22 @@ export function TicketList() {
         .toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [tickets, segment, type, sentiment, query]);
+  }, [tickets, queueTab, segment, type, sentiment, query]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const paginated = filtered.slice((page - 1) * rowsPerPage, page * rowsPerPage);
   const avgPriority = filtered.length ? filtered.reduce((sum, item) => sum + item.priority, 0) / filtered.length : 0;
   const unassignedCount = filtered.filter((item) => !item.assignedManager).length;
   const highPriorityCount = filtered.filter((item) => item.priority >= 8).length;
-  const activeFiltersCount = [segment, type, sentiment].filter((value) => value !== 'all').length + (query.trim() ? 1 : 0);
+  const activeFiltersCount =
+    [segment, type, sentiment].filter((value) => value !== 'all').length +
+    (query.trim() ? 1 : 0) +
+    (queueTab === 'all' ? 0 : 1);
   const updatedAtLabel = new Date().toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
 
   useEffect(() => {
     setPage(1);
-  }, [segment, type, sentiment, query]);
+  }, [queueTab, segment, type, sentiment, query]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -139,6 +178,7 @@ export function TicketList() {
     value === null || value === undefined || value === '' ? '—' : String(value);
 
   const resetFilters = () => {
+    setQueueTab('all');
     setQuery('');
     setSegment('all');
     setType('all');
@@ -166,6 +206,17 @@ export function TicketList() {
       <Stack spacing={2.5}>
         <Paper elevation={0} sx={panelSx}>
           <Stack spacing={2}>
+            <Tabs
+              value={queueTab}
+              onChange={(_, value: QueueTab) => setQueueTab(value)}
+              variant="scrollable"
+              allowScrollButtonsMobile
+              sx={{ borderBottom: '1px solid rgba(17, 24, 39, 0.08)' }}
+            >
+              <Tab value="all" label={`All (${tabCounts.all})`} />
+              <Tab value="spam" label={`Spam (${tabCounts.spam})`} />
+              <Tab value="vip" label={`VIP (${tabCounts.vip})`} />
+            </Tabs>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
               <TextField
                 label="Поиск"

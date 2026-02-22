@@ -22,6 +22,9 @@ interface EvaluationTicketApi {
 
 function deriveSegment(type: string | undefined, priority: number | undefined): string {
   const normalizedType = (type ?? '').toLowerCase();
+  if (normalizedType.includes('spam') || normalizedType.includes('ñïàì')) {
+    return 'Spam';
+  }
   if (normalizedType.includes('vip') || normalizedType.includes('Ð¿Ñ€ÐµÑ‚ÐµÐ½Ð·') || (priority ?? 0) >= 8) {
     return 'VIP';
   }
@@ -86,3 +89,4 @@ export async function deleteTicket(id: number): Promise<void> {
 export async function assignTicket(id: number): Promise<void> {
   await api.post(`/api/evaluation/tickets/${id}/assign`);
 }
+

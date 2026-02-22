@@ -2,9 +2,9 @@ import { AppBar, Box, Button, Chip, Stack, Toolbar, Typography } from '@mui/mate
 import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
-  { label: 'Дашборд', to: '/' },
-  { label: 'Обращения', to: '/tickets' },
-  { label: 'Импорт', to: '/import' }
+  { label: 'Dashboard', to: '/' },
+  { label: 'Tickets', to: '/tickets' },
+  { label: 'Import', to: '/import' }
 ];
 
 export function Navbar() {
@@ -16,26 +16,33 @@ export function Navbar() {
       elevation={0}
       sx={{
         borderBottom: '1px solid rgba(17, 24, 39, 0.08)',
-        background: 'rgba(255, 255, 255, 0.94)',
-        backdropFilter: 'blur(8px)'
+        background: 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(10px)'
       }}
     >
-      <Toolbar sx={{ display: 'flex', gap: 2, py: 1, minHeight: 68 }}>
+      <Toolbar sx={{ display: 'flex', gap: 2, py: 1, minHeight: 72 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flexShrink: 0 }}>
           <Box
             sx={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              background: '#1f6feb'
+              width: 30,
+              height: 30,
+              borderRadius: 1.5,
+              background: 'linear-gradient(140deg, #1f6feb 0%, #0f3c82 100%)',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 800
             }}
-          />
+          >
+            FI
+          </Box>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.2, lineHeight: 1.1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.2, lineHeight: 1 }}>
               FIRE Console
             </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: { xs: 'none', md: 'block' } }}>
-              Routing and intake operations
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: { xs: 'none', lg: 'block' } }}>
+              Operational command panel
             </Typography>
           </Box>
         </Box>
@@ -62,7 +69,7 @@ export function Navbar() {
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
                   color: isActive ? '#0f172a' : 'rgba(17, 24, 39, 0.72)',
-                  borderRadius: 999,
+                  borderRadius: 1.5,
                   px: 2,
                   background: isActive ? 'rgba(31, 111, 235, 0.1)' : 'transparent',
                   border: isActive ? '1px solid rgba(31, 111, 235, 0.22)' : '1px solid transparent'
@@ -75,7 +82,9 @@ export function Navbar() {
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', xl: 'flex' }, flexShrink: 0 }}>
+          <Chip label="SLA 98.7%" size="small" variant="outlined" />
           <Chip label="API live" size="small" color="success" variant="outlined" />
+          <Chip label="Queue normal" size="small" color="primary" variant="outlined" />
         </Stack>
       </Toolbar>
     </AppBar>
