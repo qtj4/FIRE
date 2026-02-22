@@ -3,11 +3,11 @@ from __future__ import annotations
 import os
 import logging
 import tempfile
-from typing import Optional
+from typing import Any, Optional
 import html as html_lib
 from urllib.parse import quote, unquote
 import re
-from urllib.parse import quote
+from uuid import UUID
 import requests
 from flask import Flask, Response, request, jsonify
 from openai import OpenAI
@@ -26,10 +26,11 @@ TWILIO_AUTH_TOKEN = "143cb02c6c0555ea1044a432f7282842"
 OPENAI_API_KEY = "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"
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
 TICKET_WEBHOOK_URL = "http://2.133.130.153:5678/webhook/ticket"
+INTAKE_QUEUE_URL = os.getenv("INTAKE_QUEUE_URL", "http://2.133.130.153:8082/api/v1/intake/queue")
 TICKET_API_KEY = "reqres_bfea449a338147e6aff41a56a3067e4e"
 TICKET_CSV_TEMPLATE = os.getenv(
     "TICKET_CSV_TEMPLATE",
-    "a154a8e6-439d-4a7b-86e8-56ef94b18ee2,Мужской,1999-12-31 0:00,{text},data_error.png,VIP,Казахстан,Восточно-Казахстанская,Усть-Каменогорск  ул. Казахстан,30",
+    "a154a8e6-439d-4a7b-86e8-56ef94b18ee2,Мужской,1999-12-31 0:00,{text},VIP,Казахстан,Астана,ул Кабанбай Батыр,40",
 )
 
 
@@ -145,7 +146,7 @@ def receive_recording() -> Response:
         except OSError:
             logger.warning("Failed to remove temp file %s", file_path)
 
-    ticket_status = send_ticket_webhook(transcript)
+    ticket_status, queue_status = send_ticket_webhook(transcript)
 
     return jsonify(
         {
@@ -155,6 +156,7 @@ def receive_recording() -> Response:
             "recording_duration": recording_duration,
             "audio_url": normalized_url,
             "ticket_webhook_status": ticket_status,
+            "ticket_queue_status": queue_status,
         }
     )
 
@@ -203,10 +205,10 @@ def csv_escape(value: str) -> str:
     return value
 
 
-def send_ticket_webhook(transcript: str) -> Optional[int]:
+def send_ticket_webhook(transcript: str) -> tuple[Optional[int], Optional[int]]:
     if not TICKET_WEBHOOK_URL:
         logger.info("TICKET_WEBHOOK_URL not set, skipping ticket webhook")
-        return None
+        return None, None
 
     safe_text = csv_escape(transcript)
     csv_payload = TICKET_CSV_TEMPLATE.replace("{text}", safe_text)
@@ -224,7 +226,14 @@ def send_ticket_webhook(transcript: str) -> Optional[int]:
         response.raise_for_status()
         body_preview = response.text[:1000] if response.text else ""
         logger.info("Ticket webhook delivered: %s body=%s", response.status_code, body_preview)
-        return response.status_code
+        webhook_body: Optional[Any] = None
+        try:
+            webhook_body = response.json()
+        except ValueError:
+            logger.warning("Ticket webhook returned non-JSON body, using fallback payload for queue")
+        queue_payload = build_intake_queue_payload(webhook_body, transcript)
+        queue_status = send_to_intake_queue(queue_payload)
+        return response.status_code, queue_status
     except requests.RequestException as exc:
         error_body = ""
         if getattr(exc, "response", None) is not None:
@@ -236,6 +245,107 @@ def send_ticket_webhook(transcript: str) -> Optional[int]:
             logger.error("Ticket webhook failed: %s body=%s", exc, error_body)
         else:
             logger.error("Ticket webhook failed: %s", exc)
+        return None, None
+
+
+def build_intake_queue_payload(webhook_body: Optional[Any], transcript: str) -> dict[str, Any]:
+    source = _extract_payload_source(webhook_body)
+
+    type_ = _pick_first(source, "type", "ticketType", "category") or "Неработоспособность приложения"
+    sentiment = _pick_first(source, "sentiment", "tone") or "Негативный"
+    priority = _to_int(_pick_first(source, "priority", "priority_score"), default=8)
+    language = _pick_first(source, "language", "lang", "detected_language") or "RU"
+    summary = _pick_first(source, "summary", "description", "text") or transcript or "Клиент оставил голосовое обращение"
+    geo_normalized = (
+        _pick_first(source, "geo_normalized", "geoNormalized", "geo", "address") or "string"
+    )
+
+    payload: dict[str, Any] = {
+        "type": str(type_),
+        "sentiment": str(sentiment),
+        "priority": priority,
+        "language": str(language),
+        "summary": str(summary),
+        "geo_normalized": str(geo_normalized),
+    }
+
+    client_guid = _pick_first(source, "clientGuid", "client_guid")
+    if client_guid:
+        normalized_client_guid = _normalize_uuid(str(client_guid))
+        if normalized_client_guid:
+            payload["clientGuid"] = normalized_client_guid
+
+    return payload
+
+
+def send_to_intake_queue(payload: dict[str, Any]) -> Optional[int]:
+    if not INTAKE_QUEUE_URL:
+        logger.info("INTAKE_QUEUE_URL not set, skipping queue send")
+        return None
+
+    try:
+        response = requests.post(
+            INTAKE_QUEUE_URL,
+            json=payload,
+            headers={"Accept": "application/json"},
+            timeout=20,
+        )
+        response.raise_for_status()
+        logger.info("Queue delivered: %s body=%s", response.status_code, response.text[:1000] if response.text else "")
+        return response.status_code
+    except requests.RequestException as exc:
+        error_body = ""
+        if getattr(exc, "response", None) is not None:
+            try:
+                error_body = exc.response.text[:1000]
+            except Exception:
+                error_body = ""
+        if error_body:
+            logger.error("Queue send failed: %s body=%s payload=%s", exc, error_body, payload)
+        else:
+            logger.error("Queue send failed: %s payload=%s", exc, payload)
+        return None
+
+
+def _extract_payload_source(webhook_body: Optional[Any]) -> dict[str, Any]:
+    if isinstance(webhook_body, list):
+        for item in webhook_body:
+            if isinstance(item, dict):
+                return item
+        return {}
+    if not isinstance(webhook_body, dict):
+        return {}
+
+    for key in ("data", "result", "ticket", "payload"):
+        nested = webhook_body.get(key)
+        if isinstance(nested, dict):
+            return nested
+        if isinstance(nested, list):
+            for item in nested:
+                if isinstance(item, dict):
+                    return item
+    return webhook_body
+
+
+def _pick_first(data: dict[str, Any], *keys: str) -> Optional[Any]:
+    for key in keys:
+        if key in data and data[key] not in (None, ""):
+            return data[key]
+    return None
+
+
+def _to_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_uuid(value: str) -> Optional[str]:
+    try:
+        return str(UUID(value))
+    except (ValueError, TypeError):
+        logger.warning("Invalid clientGuid from webhook response: %s", value)
         return None
 
 
