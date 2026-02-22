@@ -46,6 +46,12 @@ server:
   port: 8082
 
 app:
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:"*"}
+      allowed-methods: ${CORS_ALLOWED_METHODS:"GET,POST,PUT,DELETE,OPTIONS"}
+      allowed-headers: ${CORS_ALLOWED_HEADERS:"*"}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
   kafka:
     topic:
       incoming: ${KAFKA_TOPIC_INCOMING:incoming_tickets}
