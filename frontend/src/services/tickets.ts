@@ -15,6 +15,7 @@ interface EvaluationTicketApi {
   sentiment?: string;
   latitude?: number;
   longitude?: number;
+  geoNormalized?: string;
   assignedOfficeName?: string;
   assignedManagerName?: string;
   enrichedAt?: string;
@@ -22,7 +23,7 @@ interface EvaluationTicketApi {
 
 function deriveSegment(type: string | undefined, priority: number | undefined): string {
   const normalizedType = (type ?? '').toLowerCase();
-  if (normalizedType.includes('spam') || normalizedType.includes('спам')) {
+  if (normalizedType.includes('spam') || normalizedType.includes('пїЅпїЅпїЅпїЅ')) {
     return 'Spam';
   }
   if (normalizedType.includes('vip') || normalizedType.includes('РїСЂРµС‚РµРЅР·') || (priority ?? 0) >= 8) {
@@ -49,6 +50,7 @@ function toTicket(dto: EvaluationTicketApi): Ticket {
     language: dto.language,
     sentiment: dto.sentiment,
     summary: dto.summary,
+    geoNormalized: dto.geoNormalized,
     latitude: dto.latitude,
     longitude: dto.longitude,
     assignedManager: dto.assignedManagerName,

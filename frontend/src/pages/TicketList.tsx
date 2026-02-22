@@ -532,7 +532,14 @@ export function TicketList() {
                           </TableCell>
                           <TableCell>{ticket.language ?? '—'}</TableCell>
                           <TableCell>{ticket.sentiment ?? '—'}</TableCell>
-                          <TableCell>{ticket.city ?? '—'}</TableCell>
+                          <TableCell title={ticket.geoNormalized ?? ticket.city ?? '—'}>
+                            <Typography
+                              variant="body2"
+                              sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            >
+                              {ticket.geoNormalized ?? ticket.city ?? '—'}
+                            </Typography>
+                          </TableCell>
                           <TableCell>
                             <Chip size="small" variant="outlined" label={`${ticket.priority}/10`} sx={{ fontWeight: 600 }} />
                           </TableCell>
@@ -648,6 +655,7 @@ export function TicketList() {
               <Typography variant="body2">Населенный пункт: {formatValue(selectedTicket.city)}</Typography>
               <Typography variant="body2">Улица: {formatValue(selectedTicket.street)}</Typography>
               <Typography variant="body2">Дом: {formatValue(selectedTicket.house)}</Typography>
+              <Typography variant="body2">Geo-normalized: {formatValue(selectedTicket.geoNormalized)}</Typography>
               <Typography variant="body2">Координаты: {coords}</Typography>
             </Stack>
 
