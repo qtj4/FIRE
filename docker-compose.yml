@@ -135,8 +135,8 @@ services:
 
   ticket-intake-service:
     build:
-      context: .
-      dockerfile: ticket-intake-service/Dockerfile
+      context: ./evaluation-service
+      dockerfile: Dockerfile
     container_name: fire-ticket-intake
     ports:
       - "8082:8082"
