@@ -10,13 +10,13 @@ import java.util.concurrent.Executor;
 @Configuration
 public class AsyncConfig {
 
-    @Value("${app.async.ticket.core-pool-size:24}")
+    @Value("${app.async.ticket.core-pool-size:8}")
     private int corePoolSize;
 
-    @Value("${app.async.ticket.max-pool-size:64}")
+    @Value("${app.async.ticket.max-pool-size:16}")
     private int maxPoolSize;
 
-    @Value("${app.async.ticket.queue-capacity:2000}")
+    @Value("${app.async.ticket.queue-capacity:500}")
     private int queueCapacity;
 
     @Bean(name = "ticketTaskExecutor")

@@ -2,6 +2,7 @@ package kz.enki.fire.ticket_intake_service.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import kz.enki.fire.ticket_intake_service.dto.response.N8nEnrichmentResponse;
 import kz.enki.fire.ticket_intake_service.model.RawTicket;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,8 @@ import org.springframework.web.client.RestTemplate;
 import java.io.File;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @RequiredArgsConstructor
@@ -42,7 +45,21 @@ public class N8nClient {
     @Value("${n8n.api-key}")
     private String apiKey;
 
+    @Value("${n8n.max-concurrent-requests:8}")
+    private int maxConcurrentRequests;
+
+    @Value("${n8n.max-concurrent-wait-ms:30000}")
+    private long maxConcurrentWaitMs;
+
+    private Semaphore n8nSemaphore;
+
+    @PostConstruct
+    void initSemaphore() {
+        n8nSemaphore = new Semaphore(Math.max(1, maxConcurrentRequests), true);
+    }
+
     public N8nEnrichmentResponse enrichTicket(RawTicket rawTicket) {
+        boolean permitAcquired = false;
         String primaryUrl = buildUrl(webhookPath);
 
         HttpHeaders headers = new HttpHeaders();
@@ -69,6 +86,16 @@ public class N8nClient {
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
         try {
+            permitAcquired = n8nSemaphore.tryAcquire(maxConcurrentWaitMs, TimeUnit.MILLISECONDS);
+            if (!permitAcquired) {
+                log.warn(
+                        "n8n concurrency gate timeout: maxConcurrentRequests={}, waitMs={}",
+                        maxConcurrentRequests,
+                        maxConcurrentWaitMs
+                );
+                return null;
+            }
+
             if (isTestWebhookPath(webhookPath)) {
                 log.warn("Using n8n test webhook path. Ensure workflow is in 'Listen for test event' mode: {}", webhookPath);
             }
@@ -85,6 +112,10 @@ public class N8nClient {
                 return requestEnrichment(fallbackUrl, requestEntity);
             }
 
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while waiting for n8n concurrency gate");
             return null;
         } catch (RestClientResponseException e) {
             log.error("n8n webhook response error: status={}, url={}, body={}",
@@ -107,6 +138,10 @@ public class N8nClient {
         } catch (Exception e) {
             log.error("Error calling n8n webhook: {}", e.getMessage(), e);
             return null;
+        } finally {
+            if (permitAcquired) {
+                n8nSemaphore.release();
+            }
         }
     }
 
