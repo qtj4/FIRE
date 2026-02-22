@@ -66,12 +66,15 @@ public class AssignmentService {
 
         Office office = selectOffice(ticket);
         if (office == null) {
-            log.warn("No office found for ticket {}, fallback to global manager pool", enrichedTicketId);
+            log.warn("No office found for ticket {}, fallback to global manager pool and first office", enrichedTicketId);
+            office = fallbackFirstOffice();
         }
 
         List<Manager> managerPool = findManagerPool(office);
         if (managerPool.isEmpty()) {
-            log.warn("No managers available for ticket {}", enrichedTicketId);
+            log.warn("No managers in DB for ticket {}, fallback: assign office only", enrichedTicketId);
+            ticket.setAssignedOffice(resolveAssignedOffice(office, null));
+            enrichedTicketRepository.save(ticket);
             return;
         }
 
@@ -81,7 +84,7 @@ public class AssignmentService {
             candidates = filterManagersByLanguage(managerPool, lang);
             if (candidates.isEmpty()) {
                 log.warn(
-                        "No strict/relaxed manager match for ticket {}, assigning by load from pool size={}",
+                        "No strict/relaxed manager match for ticket {}, fallback: assign by load from pool size={}",
                         enrichedTicketId,
                         managerPool.size()
                 );
@@ -103,6 +106,11 @@ public class AssignmentService {
                 manager.getFullName(),
                 ticket.getAssignedOffice() != null ? ticket.getAssignedOffice().getName() : "UNKNOWN"
         );
+    }
+
+    /** Fallback: при пустой БД или мок-данных — первый офис из списка. */
+    private Office fallbackFirstOffice() {
+        return officeRepository.findAll().stream().findFirst().orElse(null);
     }
 
     private Office selectOffice(EnrichedTicket ticket) {
@@ -345,15 +353,17 @@ public class AssignmentService {
         if (selectedOffice != null) {
             return selectedOffice;
         }
-        if (manager == null || manager.getOfficeName() == null || manager.getOfficeName().isBlank()) {
-            return null;
+        if (manager != null && manager.getOfficeName() != null && !manager.getOfficeName().isBlank()) {
+            String expectedOffice = normalizeOffice(manager.getOfficeName());
+            Office byManager = officeRepository.findAll().stream()
+                    .filter(o -> normalizeOffice(o.getName()).equals(expectedOffice))
+                    .findFirst()
+                    .orElse(null);
+            if (byManager != null) {
+                return byManager;
+            }
         }
-
-        String expectedOffice = normalizeOffice(manager.getOfficeName());
-        return officeRepository.findAll().stream()
-                .filter(o -> normalizeOffice(o.getName()).equals(expectedOffice))
-                .findFirst()
-                .orElse(null);
+        return fallbackFirstOffice();
     }
 
     private String normalizeOffice(String value) {
