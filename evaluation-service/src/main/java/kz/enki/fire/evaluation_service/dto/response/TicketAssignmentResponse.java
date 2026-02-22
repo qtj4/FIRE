@@ -10,6 +10,7 @@ public class TicketAssignmentResponse {
     private Long assignedManagerId;
     private String assignedManagerName;
     private Long assignedOfficeId;
+    private String assignedOfficeCode;
     private String assignedOfficeName;
     private String status;
     private String message;

@@ -9,7 +9,6 @@ import org.mapstruct.Mapping;
 public interface EnrichedTicketMapper {
 
     @Mapping(target = "id", source = "enrichedTicketId")
-    @Mapping(target = "rawTicket", ignore = true)
     @Mapping(target = "assignedOffice", ignore = true)
     @Mapping(target = "assignedManager", ignore = true)
     EnrichedTicket toEntity(EnrichedTicketEvent event);

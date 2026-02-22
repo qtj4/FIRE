@@ -5,9 +5,7 @@ import kz.enki.fire.evaluation_service.dto.kafka.EnrichedTicketEvent;
 import kz.enki.fire.evaluation_service.dto.kafka.IncomingTicketMessage;
 import kz.enki.fire.evaluation_service.mapper.EnrichedTicketMapper;
 import kz.enki.fire.evaluation_service.model.EnrichedTicket;
-import kz.enki.fire.evaluation_service.model.RawTicket;
 import kz.enki.fire.evaluation_service.repository.EnrichedTicketRepository;
-import kz.enki.fire.evaluation_service.repository.RawTicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class IncomingTicketHandler {
 
-    private final RawTicketRepository rawTicketRepository;
     private final EnrichedTicketRepository enrichedTicketRepository;
     private final AssignmentService assignmentService;
     private final EnrichedTicketMapper enrichedTicketMapper;
@@ -38,17 +35,9 @@ public class IncomingTicketHandler {
             return;
         }
 
-        RawTicket rawTicket = rawTicketRepository.findByClientGuid(message.getClientGuid())
-                .orElseGet(() -> {
-                    RawTicket newRaw = RawTicket.builder()
-                            .clientGuid(message.getClientGuid())
-                            .build();
-                    return rawTicketRepository.save(newRaw);
-                });
-
         EnrichedTicket ticket = EnrichedTicket.builder()
-                .rawTicket(rawTicket)
                 .clientGuid(message.getClientGuid())
+                .rawTicketId(message.getRawTicketId())
                 .type(message.getType())
                 .priority(message.getPriority())
                 .summary(message.getSummary())
@@ -56,6 +45,7 @@ public class IncomingTicketHandler {
                 .sentiment(message.getSentiment())
                 .latitude(message.getLatitude())
                 .longitude(message.getLongitude())
+                .geoNormalized(message.getGeoNormalized())
                 .build();
 
         EnrichedTicket saved = enrichedTicketRepository.save(ticket);
@@ -65,7 +55,7 @@ public class IncomingTicketHandler {
         EnrichedTicket assigned = enrichedTicketRepository.findById(saved.getId()).orElse(saved);
         AssignmentResultMessage result = AssignmentResultMessage.builder()
                 .clientGuid(message.getClientGuid())
-                .rawTicketId(rawTicket.getId())
+                .rawTicketId(message.getRawTicketId())
                 .enrichedTicketId(assigned.getId())
                 .assignedManagerId(assigned.getAssignedManager() != null ? assigned.getAssignedManager().getId() : null)
                 .assignedManagerName(assigned.getAssignedManager() != null ? assigned.getAssignedManager().getFullName() : null)

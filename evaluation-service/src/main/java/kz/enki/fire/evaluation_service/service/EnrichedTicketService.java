@@ -5,9 +5,7 @@ import kz.enki.fire.evaluation_service.dto.request.EnrichedTicketUpdateRequest;
 import kz.enki.fire.evaluation_service.dto.response.EnrichedTicketResponse;
 import kz.enki.fire.evaluation_service.dto.response.TicketAssignmentResponse;
 import kz.enki.fire.evaluation_service.model.EnrichedTicket;
-import kz.enki.fire.evaluation_service.model.RawTicket;
 import kz.enki.fire.evaluation_service.repository.EnrichedTicketRepository;
-import kz.enki.fire.evaluation_service.repository.RawTicketRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +18,6 @@ import java.util.UUID;
 public class EnrichedTicketService {
 
     private final EnrichedTicketRepository enrichedTicketRepository;
-    private final RawTicketRepository rawTicketRepository;
     private final HttpTicketAssignmentService httpTicketAssignmentService;
 
     public List<EnrichedTicketResponse> findAll() {
@@ -40,15 +37,13 @@ public class EnrichedTicketService {
         if (request.getRawTicketId() == null) {
             throw new IllegalArgumentException("rawTicketId is required");
         }
-        RawTicket rawTicket = rawTicketRepository.findById(request.getRawTicketId())
-                .orElseThrow(() -> new IllegalArgumentException("Raw ticket not found: " + request.getRawTicketId()));
         enrichedTicketRepository.findByRawTicketId(request.getRawTicketId()).ifPresent(existing -> {
             throw new IllegalArgumentException("Enriched ticket already exists for rawTicketId: " + request.getRawTicketId());
         });
 
         EnrichedTicket ticket = EnrichedTicket.builder()
-                .rawTicket(rawTicket)
-                .clientGuid(request.getClientGuid() != null ? request.getClientGuid() : rawTicket.getClientGuid())
+                .rawTicketId(request.getRawTicketId())
+                .clientGuid(request.getClientGuid())
                 .type(request.getType())
                 .priority(request.getPriority())
                 .summary(request.getSummary())
@@ -56,6 +51,7 @@ public class EnrichedTicketService {
                 .sentiment(request.getSentiment())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
+                .geoNormalized(request.getGeoNormalized())
                 .build();
         EnrichedTicket saved = enrichedTicketRepository.save(ticket);
         return toResponse(saved);
@@ -94,7 +90,7 @@ public class EnrichedTicketService {
     private EnrichedTicketResponse toResponse(EnrichedTicket t) {
         return EnrichedTicketResponse.builder()
                 .id(t.getId())
-                .rawTicketId(t.getRawTicket() != null ? t.getRawTicket().getId() : null)
+                .rawTicketId(t.getRawTicketId())
                 .clientGuid(t.getClientGuid())
                 .type(t.getType())
                 .priority(t.getPriority())

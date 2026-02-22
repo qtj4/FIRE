@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface ManagerRepository extends JpaRepository<Manager, Long> {
     List<Manager> findByOfficeName(String officeName);
+    List<Manager> findByOfficeCode(String officeCode);
 }

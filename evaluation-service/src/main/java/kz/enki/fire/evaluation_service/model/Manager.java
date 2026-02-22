@@ -23,6 +23,9 @@ public class Manager {
     @Column(name = "office_name")
     private String officeName;
 
+    @Column(name = "office_code")
+    private String officeCode;
+
     private String skills;
 
     @Column(name = "active_tickets_count")

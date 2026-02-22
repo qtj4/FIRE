@@ -19,12 +19,11 @@ public class EnrichedTicket {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "raw_ticket_id", nullable = false)
-    private RawTicket rawTicket;
-
     @Column(name = "client_guid")
     private UUID clientGuid;
+
+    @Column(name = "raw_ticket_id")
+    private Long rawTicketId;
 
     @Column(name = "type")
     private String type;
@@ -42,6 +41,9 @@ public class EnrichedTicket {
     private BigDecimal latitude;
 
     private BigDecimal longitude;
+
+    @Column(name = "geo_normalized", length = 512)
+    private String geoNormalized;
 
     @ManyToOne
     @JoinColumn(name = "assigned_office_id")

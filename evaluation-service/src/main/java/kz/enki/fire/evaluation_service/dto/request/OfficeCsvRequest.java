@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 
 @Data
 public class OfficeCsvRequest {
+    @CsvBindByName(column = "Код офиса")
+    private String code;
+
     @CsvBindByName(column = "Офис")
     private String name;
 

@@ -16,4 +16,5 @@ public class EnrichedTicketCreateRequest {
     private String sentiment;
     private BigDecimal latitude;
     private BigDecimal longitude;
+    private String geoNormalized;
 }

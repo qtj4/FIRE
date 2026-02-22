@@ -14,6 +14,9 @@ public class ManagerCsvRequest {
     @CsvBindByName(column = "Офис")
     private String officeName;
 
+    @CsvBindByName(column = "Код офиса")
+    private String officeCode;
+
     @CsvBindByName(column = "Навыки")
     private String skills;
 

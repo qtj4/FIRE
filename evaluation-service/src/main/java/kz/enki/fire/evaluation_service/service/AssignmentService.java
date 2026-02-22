@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -53,15 +54,45 @@ public class AssignmentService {
             return;
         }
 
+        // 1. Географический фильтр: ближайший офис по координатам; иначе по geo_normalized; иначе 50/50 Астана/Алматы
         Office office = selectOffice(ticket);
+        if (office == null && !officeRepository.findAll().isEmpty()) {
+            office = officeRepository.findAll().get(0);
+            log.info("No office matched for ticket {}, using first office as fallback", enrichedTicketId);
+        }
         if (office == null) {
             log.warn("No office found for ticket {}", enrichedTicketId);
             return;
         }
 
-        List<Manager> candidates = filterManagersBySkills(ticket, office.getName());
+        // 2. Менеджеры только из выбранного офиса — по коду офиса (приоритет), иначе по имени
+        String officeCode = office.getCode();
+        List<Manager> inOffice = officeCode != null && !officeCode.isBlank()
+                ? managerRepository.findByOfficeCode(officeCode)
+                : List.of();
+        if (inOffice.isEmpty()) {
+            inOffice = managerRepository.findByOfficeName(office.getName());
+        }
+
+        // 3. Фильтр по скиллам (VIP, смена данных, язык), затем Round Robin
+        List<Manager> candidates = filterManagersBySkills(ticket, inOffice);
+        if (candidates.isEmpty() && !inOffice.isEmpty()) {
+            log.info("No skill-matched managers for ticket {} in office {} (code={}), assigning any manager in office (fallback)", enrichedTicketId, office.getName(), officeCode);
+            candidates = inOffice;
+        }
         if (candidates.isEmpty()) {
-            log.warn("No suitable managers for ticket {} in office {}", enrichedTicketId, office.getName());
+            List<Manager> anyManagers = managerRepository.findAll();
+            if (!anyManagers.isEmpty()) {
+                Manager fallbackManager = selectByRoundRobin(anyManagers);
+                Office fallbackOffice = resolveOfficeForManager(fallbackManager, office);
+                log.info("No managers in office {} (code={}) for ticket {}, assigning any manager {} (fallback)", office.getName(), officeCode, enrichedTicketId, fallbackManager.getFullName());
+                office = fallbackOffice;
+                candidates = List.of(fallbackManager);
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            log.warn("No managers in DB for ticket {}", enrichedTicketId);
             return;
         }
 
@@ -86,6 +117,28 @@ public class AssignmentService {
                     .orElse(null);
         }
 
+        if (ticket.getGeoNormalized() != null && !ticket.getGeoNormalized().isBlank()) {
+            String geoLower = ticket.getGeoNormalized().toLowerCase();
+            Office byGeo = offices.stream()
+                    .filter(o -> o.getName() != null && geoLower.contains(o.getName().toLowerCase().trim()))
+                    .findFirst()
+                    .orElse(null);
+            if (byGeo != null) return byGeo;
+            String[] segments = ticket.getGeoNormalized().split("[,;]");
+            byGeo = offices.stream()
+                    .filter(o -> o.getName() != null && Arrays.stream(segments)
+                            .map(String::trim)
+                            .filter(s -> s.length() > 1)
+                            .anyMatch(seg -> {
+                                String segLower = seg.toLowerCase();
+                                String nameLower = o.getName().toLowerCase();
+                                return nameLower.contains(segLower) || segLower.contains(nameLower);
+                            }))
+                    .findFirst()
+                    .orElse(null);
+            if (byGeo != null) return byGeo;
+        }
+
         return splitUnknownAddress(offices);
     }
 
@@ -107,15 +160,18 @@ public class AssignmentService {
     }
 
     private boolean isAstana(String name) {
-        return name != null && ASTANA_ALIASES.contains(name.toLowerCase().trim());
+        if (name == null) return false;
+        String n = name.toLowerCase().trim();
+        return ASTANA_ALIASES.contains(n) || ASTANA_ALIASES.stream().anyMatch(a -> n.contains(a));
     }
 
     private boolean isAlmaty(String name) {
-        return name != null && ALMATY_ALIASES.contains(name.toLowerCase().trim());
+        if (name == null) return false;
+        String n = name.toLowerCase().trim();
+        return ALMATY_ALIASES.contains(n) || ALMATY_ALIASES.stream().anyMatch(a -> n.contains(a));
     }
 
-    private List<Manager> filterManagersBySkills(EnrichedTicket ticket, String officeName) {
-        List<Manager> byOffice = managerRepository.findByOfficeName(officeName);
+    private List<Manager> filterManagersBySkills(EnrichedTicket ticket, List<Manager> byOffice) {
         String type = ticket.getType() != null ? ticket.getType().toLowerCase() : "";
         Integer priority = ticket.getPriority();
         String lang = ticket.getLanguage() != null ? ticket.getLanguage().toUpperCase() : "RU";
@@ -125,6 +181,16 @@ public class AssignmentService {
                 .filter(m -> hasPositionForDataChange(m, type))
                 .filter(m -> hasLanguageSkill(m, lang))
                 .collect(Collectors.toList());
+    }
+
+    private Office resolveOfficeForManager(Manager manager, Office defaultOffice) {
+        if (manager.getOfficeCode() != null && !manager.getOfficeCode().isBlank()) {
+            return officeRepository.findByCode(manager.getOfficeCode()).orElse(defaultOffice);
+        }
+        if (manager.getOfficeName() != null && !manager.getOfficeName().isBlank()) {
+            return officeRepository.findByName(manager.getOfficeName()).orElse(defaultOffice);
+        }
+        return defaultOffice;
     }
 
     private boolean hasVipIfNeeded(Manager m, String type, Integer priority) {

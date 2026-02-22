@@ -36,3 +36,6 @@ server:
 app:
   kafka:
     enabled: true
+    topics:
+      incoming: ${APP_KAFKA_TOPICS_INCOMING:incoming_tickets}
+      outgoing: ${APP_KAFKA_TOPICS_OUTGOING:final_distribution}
