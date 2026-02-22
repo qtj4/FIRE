@@ -33,7 +33,7 @@ public class EnrichedTicket {
     @Column(columnDefinition = "TEXT")
     private String summary;
 
-    @Column(name = "language_")
+    @Column(name = "detected_language")
     private String language;
 
     private String sentiment;
