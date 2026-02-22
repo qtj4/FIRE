@@ -4,14 +4,16 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kz.enki.fire.ticket_intake_service.client.EvaluationTicketClient;
 import kz.enki.fire.ticket_intake_service.dto.kafka.AssignmentResultMessage;
-import kz.enki.fire.ticket_intake_service.dto.kafka.IncomingTicketMessage;
 import kz.enki.fire.ticket_intake_service.dto.request.PutInQueueRequest;
 import kz.enki.fire.ticket_intake_service.dto.request.TicketCsvRequest;
+import kz.enki.fire.ticket_intake_service.dto.response.EvaluationAssignmentResponse;
 import kz.enki.fire.ticket_intake_service.dto.response.GeocodingLookupResponse;
+import kz.enki.fire.ticket_intake_service.dto.response.GeocodingResult;
 import kz.enki.fire.ticket_intake_service.dto.response.IntakeResponse;
 import kz.enki.fire.ticket_intake_service.dto.response.PutInQueueResponse;
 import kz.enki.fire.ticket_intake_service.dto.response.TicketProcessingResultDto;
-import kz.enki.fire.ticket_intake_service.producer.EnrichedTicketProducer;
+import kz.enki.fire.ticket_intake_service.model.RawTicket;
+import kz.enki.fire.ticket_intake_service.repository.RawTicketRepository;
 import kz.enki.fire.ticket_intake_service.service.AssignmentResultStore;
 import kz.enki.fire.ticket_intake_service.service.CsvParserService;
 import kz.enki.fire.ticket_intake_service.service.GeocodingService;
@@ -44,8 +46,8 @@ public class IntakeController {
 
     private final CsvParserService csvParserService;
     private final TicketService ticketService;
-    private final EnrichedTicketProducer enrichedTicketProducer;
     private final EvaluationTicketClient evaluationTicketClient;
+    private final RawTicketRepository rawTicketRepository;
     private final AssignmentResultStore assignmentResultStore;
     private final GeocodingService geocodingService;
     private final IdempotencyService idempotencyService;
@@ -185,7 +187,7 @@ public class IntakeController {
     @Operation(
             summary = "Положить тикет в очередь (тест через Swagger)",
             description = "Принимает JSON в формате обогащения (type, sentiment, priority, language, summary, geo_normalized). " +
-                    "Отправляет сообщение в Kafka (incoming_tickets); evaluation-service подхватит и обработает."
+                    "Синхронно создает raw+enriched ticket в evaluation-service и сразу выполняет назначение."
     )
     public PutInQueueResponse putInQueue(
             @RequestBody PutInQueueRequest request,
@@ -205,31 +207,61 @@ public class IntakeController {
         }
 
         UUID clientGuid = request.getClientGuid() != null ? request.getClientGuid() : UUID.randomUUID();
-        IncomingTicketMessage message = IncomingTicketMessage.builder()
+        GeocodingResult geoResult = request.getGeoNormalized() != null && !request.getGeoNormalized().isBlank()
+                ? geocodingService.geocode(request.getGeoNormalized())
+                : null;
+
+        RawTicket rawTicket = rawTicketRepository.save(RawTicket.builder()
                 .clientGuid(clientGuid)
-                .rawTicketId(null)
-                .type(request.getType())
-                .sentiment(request.getSentiment())
-                .priority(request.getPriority())
-                .language(request.getLanguage())
-                .summary(request.getSummary())
-                .geoNormalized(request.getGeoNormalized())
-                .latitude(null)
-                .longitude(null)
-                .build();
-        evaluationTicketClient.createForImmediateUi(clientGuid, request);
-        enrichedTicketProducer.sendIncomingTicket(message);
-        assignmentResultStore.put(AssignmentResultMessage.builder()
-                .clientGuid(clientGuid)
-                .status("IN_QUEUE")
+                .description(request.getSummary())
+                .clientSegment(deriveClientSegment(request.getType(), request.getPriority()))
+                .city(request.getGeoNormalized())
                 .build());
+        try {
+            EvaluationAssignmentResponse assignment = evaluationTicketClient.assignImmediately(
+                    rawTicket.getId(),
+                    clientGuid,
+                    request,
+                    geoResult != null ? geoResult.getLatitude() : null,
+                    geoResult != null ? geoResult.getLongitude() : null
+            );
+
+            assignmentResultStore.put(AssignmentResultMessage.builder()
+                    .clientGuid(clientGuid)
+                    .rawTicketId(rawTicket.getId())
+                    .enrichedTicketId(assignment.getEnrichedTicketId())
+                    .assignedManagerId(assignment.getAssignedManagerId())
+                    .assignedManagerName(assignment.getAssignedManagerName())
+                    .assignedOfficeId(assignment.getAssignedOfficeId())
+                    .assignedOfficeName(assignment.getAssignedOfficeName())
+                    .status(assignment.getStatus() != null ? assignment.getStatus() : "UNASSIGNED")
+                    .build());
+        } catch (Exception e) {
+            assignmentResultStore.put(AssignmentResultMessage.builder()
+                    .clientGuid(clientGuid)
+                    .rawTicketId(rawTicket.getId())
+                    .status("FAILED")
+                    .build());
+            throw e;
+        }
 
         PutInQueueResponse response = PutInQueueResponse.builder()
                 .clientGuid(clientGuid)
-                .message("Тикет отправлен в очередь incoming_tickets. evaluation-service обработает и вернёт результат в final_distribution.")
+                .message("Тикет синхронно обработан в evaluation-service и готов для отображения на фронте.")
                 .build();
         idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_QUEUE, idempotencyKey, requestHash, response);
         return response;
+    }
+
+    private static String deriveClientSegment(String type, Integer priority) {
+        String normalized = type != null ? type.toLowerCase() : "";
+        if (normalized.contains("vip") || normalized.contains("претенз") || (priority != null && priority >= 8)) {
+            return "VIP";
+        }
+        if (priority != null && priority >= 6) {
+            return "Priority";
+        }
+        return "Mass";
     }
 
     private static String resolveStatusMessage(String status) {

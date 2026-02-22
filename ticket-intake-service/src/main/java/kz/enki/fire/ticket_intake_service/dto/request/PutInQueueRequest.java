@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * Тело для теста через Swagger: положить тикет в очередь.
- * evaluation-service подхватит из Kafka и обработает (создаст тикет, назначит менеджера).
+ * Запрос обрабатывается синхронно: evaluation-service создаёт тикет и назначает менеджера.
  */
 @Data
 @NoArgsConstructor
