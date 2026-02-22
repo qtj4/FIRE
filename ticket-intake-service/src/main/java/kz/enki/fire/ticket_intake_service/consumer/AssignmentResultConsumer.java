@@ -1,13 +1,18 @@
 package kz.enki.fire.ticket_intake_service.consumer;
 
 import kz.enki.fire.ticket_intake_service.dto.kafka.AssignmentResultMessage;
+import kz.enki.fire.ticket_intake_service.service.AssignmentResultStore;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class AssignmentResultConsumer {
+
+    private final AssignmentResultStore assignmentResultStore;
 
     @KafkaListener(
             topics = "${app.kafka.topic.assignment-result:final_distribution}",
@@ -15,6 +20,7 @@ public class AssignmentResultConsumer {
     )
     public void consume(AssignmentResultMessage result) {
         if (result == null) return;
+        assignmentResultStore.put(result);
         log.info("Assignment result: clientGuid={}, enrichedId={}, manager={}, office={}, status={}",
                 result.getClientGuid(), result.getEnrichedTicketId(),
                 result.getAssignedManagerName(), result.getAssignedOfficeName(), result.getStatus());
