@@ -2,6 +2,7 @@ package kz.enki.fire.ticket_intake_service.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import kz.enki.fire.ticket_intake_service.client.EvaluationTicketClient;
 import kz.enki.fire.ticket_intake_service.dto.kafka.AssignmentResultMessage;
 import kz.enki.fire.ticket_intake_service.dto.kafka.IncomingTicketMessage;
 import kz.enki.fire.ticket_intake_service.dto.request.PutInQueueRequest;
@@ -44,6 +45,7 @@ public class IntakeController {
     private final CsvParserService csvParserService;
     private final TicketService ticketService;
     private final EnrichedTicketProducer enrichedTicketProducer;
+    private final EvaluationTicketClient evaluationTicketClient;
     private final AssignmentResultStore assignmentResultStore;
     private final GeocodingService geocodingService;
     private final IdempotencyService idempotencyService;
@@ -215,6 +217,7 @@ public class IntakeController {
                 .latitude(null)
                 .longitude(null)
                 .build();
+        evaluationTicketClient.createForImmediateUi(clientGuid, request);
         enrichedTicketProducer.sendIncomingTicket(message);
         assignmentResultStore.put(AssignmentResultMessage.builder()
                 .clientGuid(clientGuid)
