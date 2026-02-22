@@ -6,9 +6,6 @@ server:
 spring:
   application:
     name: evaluation-service
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
     
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/fire}
@@ -56,8 +53,8 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto
-        spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.TicketContext
+        spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto.kafka,kz.enki.fire.ticket_intake_service.dto.kafka
+        spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.kafka.IncomingTicketMessage
         max.poll.records: 100
         fetch.min.bytes: 1
         fetch.max.wait.ms: 500
@@ -118,7 +115,7 @@ app:
     environment: production
   
   kafka:
-    enabled: false
+    enabled: true
     topics:
       incoming: incoming_tickets
       outgoing: final_distribution
