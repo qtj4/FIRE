@@ -1,5 +1,7 @@
 package kz.enki.fire.ticket_intake_service.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kz.enki.fire.ticket_intake_service.dto.response.N8nEnrichmentResponse;
 import kz.enki.fire.ticket_intake_service.model.RawTicket;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
+import java.util.Iterator;
 import java.util.Objects;
 
 @Component
@@ -25,6 +28,7 @@ import java.util.Objects;
 public class N8nClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${n8n.url}")
     private String n8nUrl;
@@ -69,7 +73,19 @@ public class N8nClient {
                 log.warn("Using n8n test webhook path. Ensure workflow is in 'Listen for test event' mode: {}", webhookPath);
             }
             log.info("Calling n8n webhook: {}", primaryUrl);
-            return restTemplate.postForObject(primaryUrl, requestEntity, N8nEnrichmentResponse.class);
+            N8nEnrichmentResponse response = requestEnrichment(primaryUrl, requestEntity);
+            if (response != null) {
+                return response;
+            }
+
+            if (isTestWebhookPath(webhookPath)) {
+                String fallbackPath = webhookPath.replace("/webhook-test/", "/webhook/");
+                String fallbackUrl = buildUrl(fallbackPath);
+                log.warn("Test webhook returned empty payload. Retrying n8n production webhook: {}", fallbackUrl);
+                return requestEnrichment(fallbackUrl, requestEntity);
+            }
+
+            return null;
         } catch (RestClientResponseException e) {
             log.error("n8n webhook response error: status={}, url={}, body={}",
                     e.getRawStatusCode(), primaryUrl, e.getResponseBodyAsString());
@@ -79,7 +95,7 @@ public class N8nClient {
                 String fallbackUrl = buildUrl(fallbackPath);
                 try {
                     log.warn("Test webhook not found. Retrying n8n production webhook: {}", fallbackUrl);
-                    return restTemplate.postForObject(fallbackUrl, requestEntity, N8nEnrichmentResponse.class);
+                    return requestEnrichment(fallbackUrl, requestEntity);
                 } catch (Exception retryError) {
                     log.error("Retry to production webhook failed: {}", retryError.getMessage(), retryError);
                 }
@@ -115,5 +131,171 @@ public class N8nClient {
 
     private boolean isTestWebhookPath(String path) {
         return path != null && path.contains("/webhook-test/");
+    }
+
+    private N8nEnrichmentResponse requestEnrichment(String url, HttpEntity<MultiValueMap<String, Object>> requestEntity) {
+        Object rawResponse = restTemplate.postForObject(url, requestEntity, Object.class);
+        N8nEnrichmentResponse parsed = parseEnrichmentResponse(rawResponse);
+        if (parsed == null) {
+            log.warn("n8n returned payload without enrichment fields, url={}", url);
+        }
+        return parsed;
+    }
+
+    private N8nEnrichmentResponse parseEnrichmentResponse(Object rawResponse) {
+        if (rawResponse == null) {
+            return null;
+        }
+
+        JsonNode root;
+        if (rawResponse instanceof String rawText) {
+            try {
+                root = objectMapper.readTree(rawText);
+            } catch (Exception ignored) {
+                return null;
+            }
+        } else {
+            root = objectMapper.valueToTree(rawResponse);
+        }
+
+        JsonNode payload = unwrapPayload(root, 0);
+        if (payload == null || payload.isNull() || payload.isMissingNode() || !payload.isObject()) {
+            return null;
+        }
+
+        N8nEnrichmentResponse response = new N8nEnrichmentResponse();
+        response.setType(readText(payload, "type", "ticketType", "category"));
+        response.setSentiment(readText(payload, "sentiment", "tone"));
+        response.setPriority(readInteger(payload, "priority", "priority_score", "priorityScore"));
+        response.setLanguage(readText(payload, "language", "lang", "detected_language", "detectedLanguage"));
+        response.setSummary(readText(payload, "summary", "description_summary", "shortSummary"));
+        response.setGeo_normalized(readText(payload, "geo_normalized", "geoNormalized", "geo"));
+
+        return isEnrichmentEmpty(response) ? null : response;
+    }
+
+    private JsonNode unwrapPayload(JsonNode node, int depth) {
+        if (node == null || node.isNull() || depth > 6) {
+            return node;
+        }
+
+        if (node.isArray()) {
+            return node.size() == 0 ? node : unwrapPayload(node.get(0), depth + 1);
+        }
+
+        if (!node.isObject()) {
+            return node;
+        }
+
+        if (containsEnrichmentFields(node)) {
+            return node;
+        }
+
+        String[] wrappers = {"data", "result", "output", "payload", "item", "json", "body"};
+        for (String wrapper : wrappers) {
+            JsonNode wrapped = findFieldIgnoreCase(node, wrapper);
+            if (wrapped != null && !wrapped.isNull()) {
+                JsonNode unwrapped = unwrapPayload(wrapped, depth + 1);
+                if (unwrapped != null && !unwrapped.isNull() && containsEnrichmentFields(unwrapped)) {
+                    return unwrapped;
+                }
+            }
+        }
+
+        if (node.size() == 1) {
+            Iterator<JsonNode> iterator = node.elements();
+            if (iterator.hasNext()) {
+                return unwrapPayload(iterator.next(), depth + 1);
+            }
+        }
+
+        return node;
+    }
+
+    private boolean containsEnrichmentFields(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return false;
+        }
+        return findFieldIgnoreCase(node, "type") != null
+                || findFieldIgnoreCase(node, "sentiment") != null
+                || findFieldIgnoreCase(node, "priority") != null
+                || findFieldIgnoreCase(node, "language") != null
+                || findFieldIgnoreCase(node, "summary") != null
+                || findFieldIgnoreCase(node, "geo_normalized") != null
+                || findFieldIgnoreCase(node, "geoNormalized") != null;
+    }
+
+    private String readText(JsonNode node, String... aliases) {
+        for (String alias : aliases) {
+            JsonNode candidate = findFieldIgnoreCase(node, alias);
+            if (candidate == null || candidate.isNull()) {
+                continue;
+            }
+            String value = candidate.asText(null);
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private Integer readInteger(JsonNode node, String... aliases) {
+        for (String alias : aliases) {
+            JsonNode candidate = findFieldIgnoreCase(node, alias);
+            if (candidate == null || candidate.isNull()) {
+                continue;
+            }
+            if (candidate.isInt() || candidate.isLong() || candidate.isShort()) {
+                return candidate.intValue();
+            }
+            if (candidate.isNumber()) {
+                return (int) Math.round(candidate.asDouble());
+            }
+            String raw = candidate.asText(null);
+            if (raw != null && !raw.isBlank()) {
+                try {
+                    return Integer.parseInt(raw.trim());
+                } catch (NumberFormatException ignored) {
+                    // keep trying aliases
+                }
+            }
+        }
+        return null;
+    }
+
+    private JsonNode findFieldIgnoreCase(JsonNode node, String field) {
+        if (node == null || !node.isObject() || field == null) {
+            return null;
+        }
+
+        JsonNode direct = node.get(field);
+        if (direct != null) {
+            return direct;
+        }
+
+        Iterator<String> iterator = node.fieldNames();
+        while (iterator.hasNext()) {
+            String current = iterator.next();
+            if (field.equalsIgnoreCase(current)) {
+                return node.get(current);
+            }
+        }
+        return null;
+    }
+
+    private boolean isEnrichmentEmpty(N8nEnrichmentResponse response) {
+        if (response == null) {
+            return true;
+        }
+        return isBlank(response.getType())
+                && isBlank(response.getSentiment())
+                && response.getPriority() == null
+                && isBlank(response.getLanguage())
+                && isBlank(response.getSummary())
+                && isBlank(response.getGeo_normalized());
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

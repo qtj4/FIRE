@@ -68,6 +68,9 @@ public class TicketService {
             RawTicket rawTicket = saveRawTicket(req);
 
             N8nEnrichmentResponse response = n8nClient.enrichTicket(rawTicket);
+            String summary = (response != null && response.getSummary() != null && !response.getSummary().isBlank())
+                    ? response.getSummary()
+                    : "Pending enrichment...";
 
             GeocodingResult geoResult = null;
             if (response != null && response.getGeo_normalized() != null) {
@@ -79,7 +82,7 @@ public class TicketService {
                     .clientGuid(rawTicket.getClientGuid())
                     .type(response != null ? response.getType() : null)
                     .priority(response != null ? response.getPriority() : null)
-                    .summary(response != null ? response.getSummary() : "Pending enrichment...")
+                    .summary(summary)
                     .sentiment(response != null ? response.getSentiment() : null)
                     .language(response != null ? response.getLanguage() : null)
                     .latitude(geoResult != null ? geoResult.getLatitude() : null)
@@ -95,7 +98,7 @@ public class TicketService {
                     .sentiment(response != null ? response.getSentiment() : null)
                     .priority(response != null ? response.getPriority() : null)
                     .language(response != null ? response.getLanguage() : null)
-                    .summary(response != null ? response.getSummary() : "Pending enrichment...")
+                    .summary(summary)
                     .geoNormalized(response != null ? response.getGeo_normalized() : null)
                     .latitude(geoResult != null ? geoResult.getLatitude() : null)
                     .longitude(geoResult != null ? geoResult.getLongitude() : null)

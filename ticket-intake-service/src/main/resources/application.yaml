@@ -78,7 +78,7 @@ evaluation:
 n8n:
   url: ${N8N_URL:http://2.133.130.153}
   port: ${N8N_PORT:5678}
-  webhook-path: ${N8N_WEBHOOK_PATH:/webhook-test/ticket}
+  webhook-path: ${N8N_WEBHOOK_PATH:/webhook/ticket}
   api-key: ${N8N_API_KEY:reqres_bfea449a338147e6aff41a56a3067e4e}
 
 geocoding:

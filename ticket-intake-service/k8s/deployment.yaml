@@ -76,7 +76,7 @@ spec:
             - name: N8N_PORT
               value: "5678"
             - name: N8N_WEBHOOK_PATH
-              value: "/webhook-test/ticket"
+              value: "/webhook/ticket"
             - name: GEOCODING_CUSTOM_URL
               value: "http://2.133.130.153:5000/geocode"
           resources:
