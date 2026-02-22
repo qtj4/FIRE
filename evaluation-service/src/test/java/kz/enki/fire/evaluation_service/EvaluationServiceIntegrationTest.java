@@ -8,7 +8,7 @@ import kz.enki.fire.evaluation_service.repository.EnrichedTicketRepository;
 import kz.enki.fire.evaluation_service.repository.ManagerRepository;
 import kz.enki.fire.evaluation_service.repository.OfficeRepository;
 import kz.enki.fire.evaluation_service.repository.RawTicketRepository;
-import kz.enki.fire.evaluation_service.consumer.EnrichedTicketConsumer;
+import kz.enki.fire.evaluation_service.consumer.IncomingTicketConsumer;
 import kz.enki.fire.evaluation_service.service.AssignmentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,7 +46,7 @@ class EvaluationServiceIntegrationTest {
     private AssignmentService assignmentService;
 
     @MockBean
-    private EnrichedTicketConsumer enrichedTicketConsumer;
+    private IncomingTicketConsumer incomingTicketConsumer;
 
     @BeforeEach
     void setUp() {

@@ -1,6 +1,6 @@
 package kz.enki.fire.ticket_intake_service.config;
 
-import kz.enki.fire.ticket_intake_service.dto.kafka.EnrichedTicketEvent;
+import kz.enki.fire.ticket_intake_service.dto.kafka.IncomingTicketMessage;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -22,7 +22,7 @@ public class KafkaProducerConfig {
     private final KafkaProperties kafkaProperties;
 
     @Bean
-    public ProducerFactory<String, EnrichedTicketEvent> producerFactory() {
+    public ProducerFactory<String, IncomingTicketMessage> producerFactory() {
         Map<String, Object> config = new HashMap<>(kafkaProperties.buildProducerProperties());
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
@@ -30,7 +30,7 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, EnrichedTicketEvent> kafkaTemplate() {
+    public KafkaTemplate<String, IncomingTicketMessage> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
     }
 }

@@ -60,7 +60,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: kz.enki.fire.evaluation_service.dto.kafka,kz.enki.fire.ticket_intake_service.dto.kafka
-        spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.kafka.EnrichedTicketEvent
+        spring.json.value.default.type: kz.enki.fire.evaluation_service.dto.kafka.IncomingTicketMessage
       max-poll-records: 10
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

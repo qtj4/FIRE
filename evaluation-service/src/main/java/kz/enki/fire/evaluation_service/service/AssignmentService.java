@@ -33,6 +33,13 @@ public class AssignmentService {
     private static final Set<String> ALMATY_ALIASES = Set.of("алматы", "almaty", "алма-ата", "alma-ata");
 
     @Transactional
+    public void assignManager(Long enrichedTicketId) {
+        EnrichedTicket ticket = enrichedTicketRepository.findById(enrichedTicketId)
+                .orElseThrow(() -> new IllegalArgumentException("Enriched ticket not found: " + enrichedTicketId));
+        assignManager(enrichedTicketMapper.toEvent(ticket));
+    }
+
+    @Transactional
     public void assignManager(EnrichedTicketEvent event) {
         Long enrichedTicketId = event.getEnrichedTicketId();
         EnrichedTicket ticket = enrichedTicketRepository.findById(enrichedTicketId)

@@ -20,6 +20,13 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:ticket-intake-service-group}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: kz.enki.fire.ticket_intake_service.dto.kafka
+        spring.json.value.default.type: kz.enki.fire.ticket_intake_service.dto.kafka.AssignmentResultMessage
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:1111/fire}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -42,6 +49,7 @@ app:
   kafka:
     topic:
       incoming: ${KAFKA_TOPIC_INCOMING:incoming_tickets}
+      assignment-result: ${KAFKA_TOPIC_ASSIGNMENT_RESULT:final_distribution}
 
 evaluation:
   base-url: ${EVALUATION_BASE_URL:http://localhost:8092}

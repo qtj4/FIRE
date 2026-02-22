@@ -1,11 +1,10 @@
 package kz.enki.fire.ticket_intake_service.service;
 
 import kz.enki.fire.ticket_intake_service.client.N8nClient;
-import kz.enki.fire.ticket_intake_service.dto.kafka.EnrichedTicketEvent;
+import kz.enki.fire.ticket_intake_service.dto.kafka.IncomingTicketMessage;
 import kz.enki.fire.ticket_intake_service.dto.request.TicketCsvRequest;
 import kz.enki.fire.ticket_intake_service.dto.response.GeocodingResult;
 import kz.enki.fire.ticket_intake_service.dto.response.N8nEnrichmentResponse;
-import kz.enki.fire.ticket_intake_service.mapper.EnrichedTicketMapper;
 import kz.enki.fire.ticket_intake_service.mapper.RawTicketMapper;
 import kz.enki.fire.ticket_intake_service.model.EnrichedTicket;
 import kz.enki.fire.ticket_intake_service.model.RawTicket;
@@ -31,7 +30,6 @@ public class TicketService {
     private final N8nClient n8nClient;
     private final GeocodingService geocodingService;
     private final EnrichedTicketProducer enrichedTicketProducer;
-    private final EnrichedTicketMapper enrichedTicketMapper;
     private final RawTicketMapper rawTicketMapper;
 
     @Qualifier("ticketTaskExecutor")
@@ -80,10 +78,21 @@ public class TicketService {
 
             enrichedTicket = enrichedTicketRepository.save(enrichedTicket);
 
-            EnrichedTicketEvent event = enrichedTicketMapper.toEvent(enrichedTicket);
-            enrichedTicketProducer.sendEnrichedTicketEvent(event);
+            IncomingTicketMessage message = IncomingTicketMessage.builder()
+                    .clientGuid(rawTicket.getClientGuid())
+                    .rawTicketId(rawTicket.getId())
+                    .type(response != null ? response.getType() : null)
+                    .sentiment(response != null ? response.getSentiment() : null)
+                    .priority(response != null ? response.getPriority() : null)
+                    .language(response != null ? response.getLanguage() : null)
+                    .summary(response != null ? response.getSummary() : "Pending enrichment...")
+                    .geoNormalized(response != null ? response.getGeo_normalized() : null)
+                    .latitude(geoResult != null ? geoResult.getLatitude() : null)
+                    .longitude(geoResult != null ? geoResult.getLongitude() : null)
+                    .build();
+            enrichedTicketProducer.sendIncomingTicket(message);
 
-            log.debug("Successfully processed and sent ticket for client: {}", rawTicket.getClientGuid());
+            log.debug("Successfully sent ticket to queue for client: {}", rawTicket.getClientGuid());
         } catch (Exception e) {
             log.error("Failed to process ticket for client GUID: {}", req.getClientGuid(), e);
         }

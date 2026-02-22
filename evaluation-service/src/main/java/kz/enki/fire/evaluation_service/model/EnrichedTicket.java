@@ -26,7 +26,7 @@ public class EnrichedTicket {
     @Column(name = "client_guid")
     private UUID clientGuid;
 
-    @Column(name = "type_")
+    @Column(name = "type")
     private String type;
 
     private Integer priority;
@@ -34,7 +34,7 @@ public class EnrichedTicket {
     @Column(columnDefinition = "TEXT")
     private String summary;
 
-    @Column(name = "language_")
+    @Column(name = "detected_language")
     private String language;
 
     private String sentiment;
