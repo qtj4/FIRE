@@ -12,6 +12,7 @@ import kz.enki.fire.ticket_intake_service.dto.response.TicketProcessingResultDto
 import kz.enki.fire.ticket_intake_service.producer.EnrichedTicketProducer;
 import kz.enki.fire.ticket_intake_service.service.AssignmentResultStore;
 import kz.enki.fire.ticket_intake_service.service.CsvParserService;
+import kz.enki.fire.ticket_intake_service.service.IdempotencyService;
 import kz.enki.fire.ticket_intake_service.service.TicketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,44 +36,70 @@ import java.util.stream.Collectors;
 @Tag(name = "Ticket Intake", description = "CSV ingestion and очередь для evaluation-service")
 public class IntakeController {
 
+    private static final String IDEMPOTENCY_SCOPE_TICKETS = "intake-tickets";
+    private static final String IDEMPOTENCY_SCOPE_QUEUE = "intake-queue";
+
     private final CsvParserService csvParserService;
     private final TicketService ticketService;
     private final EnrichedTicketProducer enrichedTicketProducer;
     private final AssignmentResultStore assignmentResultStore;
+    private final IdempotencyService idempotencyService;
 
     @PostMapping("/tickets")
     @Operation(summary = "Загрузка CSV тикетов", description = "Парсинг → N8N обогащение → Kafka (incoming_tickets) → evaluation вернёт результат в final_distribution. Результаты можно опрашивать через GET /results.")
-    public IntakeResponse postTickets(@RequestParam("file") MultipartFile file) {
+    public IntakeResponse postTickets(
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        var cachedResponse = idempotencyService.getCachedResponse(
+                IDEMPOTENCY_SCOPE_TICKETS,
+                idempotencyKey,
+                IntakeResponse.class
+        );
+        if (cachedResponse.isPresent()) {
+            return cachedResponse.get();
+        }
+
         CsvParserService.CsvParseResult<TicketCsvRequest> parseResult = csvParserService.parse(file, TicketCsvRequest.class);
+        IntakeResponse response;
+
         if ("ERROR".equalsIgnoreCase(parseResult.getStatus())) {
-            return IntakeResponse.builder()
+            response = IntakeResponse.builder()
                     .status(parseResult.getStatus())
                     .message(parseResult.getMessage())
                     .processedCount(0)
                     .failedCount(parseResult.getFailedCount())
                     .results(List.of())
                     .build();
+            idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, response);
+            return response;
         }
         if (parseResult.getItems().isEmpty()) {
-            return IntakeResponse.builder()
+            response = IntakeResponse.builder()
                     .status("SUCCESS")
                     .message("Нет строк для обработки")
                     .processedCount(0)
                     .failedCount(parseResult.getFailedCount())
                     .results(List.of())
                     .build();
+            idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, response);
+            return response;
         }
+
         List<UUID> sentGuids = ticketService.processTickets(parseResult.getItems());
         List<TicketProcessingResultDto> results = sentGuids.stream()
                 .map(guid -> toResultDto(guid, assignmentResultStore.get(guid).orElse(null)))
                 .collect(Collectors.toList());
-        return IntakeResponse.builder()
+
+        response = IntakeResponse.builder()
                 .status("SUCCESS")
                 .message("Тикеты отправлены в очередь. Опрашивайте GET /api/v1/intake/results?clientGuids=... для статуса назначения.")
                 .processedCount(results.size())
                 .failedCount(parseResult.getFailedCount())
                 .results(results)
                 .build();
+        idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_TICKETS, idempotencyKey, response);
+        return response;
     }
 
     private static TicketProcessingResultDto toResultDto(UUID clientGuid, AssignmentResultMessage msg) {
@@ -136,7 +164,19 @@ public class IntakeController {
             description = "Принимает JSON в формате обогащения (type, sentiment, priority, language, summary, geo_normalized). " +
                     "Отправляет сообщение в Kafka (incoming_tickets); evaluation-service подхватит и обработает."
     )
-    public PutInQueueResponse putInQueue(@RequestBody PutInQueueRequest request) {
+    public PutInQueueResponse putInQueue(
+            @RequestBody PutInQueueRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        var cachedResponse = idempotencyService.getCachedResponse(
+                IDEMPOTENCY_SCOPE_QUEUE,
+                idempotencyKey,
+                PutInQueueResponse.class
+        );
+        if (cachedResponse.isPresent()) {
+            return cachedResponse.get();
+        }
+
         UUID clientGuid = request.getClientGuid() != null ? request.getClientGuid() : UUID.randomUUID();
         IncomingTicketMessage message = IncomingTicketMessage.builder()
                 .clientGuid(clientGuid)
@@ -151,9 +191,12 @@ public class IntakeController {
                 .longitude(null)
                 .build();
         enrichedTicketProducer.sendIncomingTicket(message);
-        return PutInQueueResponse.builder()
+
+        PutInQueueResponse response = PutInQueueResponse.builder()
                 .clientGuid(clientGuid)
                 .message("Тикет отправлен в очередь incoming_tickets. evaluation-service обработает и вернёт результат в final_distribution.")
                 .build();
+        idempotencyService.cacheResponse(IDEMPOTENCY_SCOPE_QUEUE, idempotencyKey, response);
+        return response;
     }
 }
