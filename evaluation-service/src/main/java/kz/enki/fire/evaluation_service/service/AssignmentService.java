@@ -111,10 +111,6 @@ public class AssignmentService {
             return null;
         }
 
-        if (shouldSplitByRule(ticket)) {
-            return splitUnknownAddress(offices);
-        }
-
         if (ticket.getLatitude() != null && ticket.getLongitude() != null) {
             Office nearestByCoordinates = offices.stream()
                     .filter(o -> o.getLatitude() != null && o.getLongitude() != null)
@@ -128,6 +124,10 @@ public class AssignmentService {
         Office byGeoNormalized = selectOfficeByGeoNormalized(ticket.getGeoNormalized(), offices);
         if (byGeoNormalized != null) {
             return byGeoNormalized;
+        }
+
+        if (shouldSplitByRule(ticket)) {
+            return splitUnknownAddress(offices);
         }
 
         log.warn(
@@ -193,6 +193,9 @@ public class AssignmentService {
             return true;
         }
         if (ticket.getLatitude() != null && ticket.getLongitude() != null) {
+            return false;
+        }
+        if (!isBlank(ticket.getGeoNormalized())) {
             return false;
         }
         if (ticket.getRawTicket() == null) {
