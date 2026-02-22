@@ -19,3 +19,9 @@ export async function fetchIntakeResults(clientGuids: string[]): Promise<TicketP
   const { data } = await intakeApi.get<TicketProcessingResult[]>(`/api/v1/intake/results?clientGuids=${encodeURIComponent(q)}`);
   return Array.isArray(data) ? data : [];
 }
+
+export async function fetchRecentIntakeResults(limit = 50): Promise<TicketProcessingResult[]> {
+  const safeLimit = Math.max(1, Math.min(limit, 500));
+  const { data } = await intakeApi.get<TicketProcessingResult[]>(`/api/v1/intake/results/recent?limit=${safeLimit}`);
+  return Array.isArray(data) ? data : [];
+}

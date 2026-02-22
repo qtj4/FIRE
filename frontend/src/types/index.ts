@@ -13,6 +13,8 @@ export type Language = 'RU' | 'KZ' | 'ENG' | string;
 
 export interface Ticket {
   id: string;
+  backendId?: number;
+  rawTicketId?: number;
   clientId?: string;
   gender?: 'Муж' | 'Жен' | string;
   birthDate?: string;
@@ -34,6 +36,18 @@ export interface Ticket {
   longitude?: number;
   assignedManager?: string;
   createdAt?: string;
+}
+
+export interface TicketMutationPayload {
+  rawTicketId?: number;
+  clientGuid?: string;
+  type: string;
+  priority: number;
+  summary: string;
+  language?: string;
+  sentiment?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface DashboardStats {

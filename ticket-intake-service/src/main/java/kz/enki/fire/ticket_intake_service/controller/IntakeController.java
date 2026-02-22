@@ -121,6 +121,15 @@ public class IntakeController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/results/recent")
+    @Operation(summary = "Последние результаты назначения", description = "Возвращает последние assignment results из final_distribution для мониторинга очереди.")
+    public List<TicketProcessingResultDto> getRecentResults(@RequestParam(defaultValue = "50") int limit) {
+        return assignmentResultStore.getRecent(limit).stream()
+                .filter(msg -> msg.getClientGuid() != null)
+                .map(msg -> toResultDto(msg.getClientGuid(), msg))
+                .toList();
+    }
+
     @PostMapping("/queue")
     @Operation(
             summary = "Положить тикет в очередь (тест через Swagger)",

@@ -5,6 +5,7 @@ import { mockManagerProfile } from '@/mocks/manager';
 const navItems = [
   { label: 'Дашборд', to: '/' },
   { label: 'Обращения', to: '/tickets' },
+  { label: 'Операции', to: '/operations' },
   { label: 'Импорт', to: '/import' },
   { label: 'Профиль', to: '/manager' }
 ];

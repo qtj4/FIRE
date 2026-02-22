@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,14 +38,24 @@ public class EnrichedTicketService {
 
     @Transactional
     public EnrichedTicketResponse create(EnrichedTicketCreateRequest request) {
-        if (request.getRawTicketId() == null) {
-            throw new IllegalArgumentException("rawTicketId is required");
+        RawTicket rawTicket;
+        if (request.getRawTicketId() != null) {
+            rawTicket = rawTicketRepository.findById(request.getRawTicketId())
+                    .orElseThrow(() -> new IllegalArgumentException("Raw ticket not found: " + request.getRawTicketId()));
+            enrichedTicketRepository.findByRawTicketId(request.getRawTicketId()).ifPresent(existing -> {
+                throw new IllegalArgumentException("Enriched ticket already exists for rawTicketId: " + request.getRawTicketId());
+            });
+        } else {
+            UUID clientGuid = request.getClientGuid() != null ? request.getClientGuid() : UUID.randomUUID();
+            String summary = request.getSummary() != null ? request.getSummary() : "Created from CRUD form";
+            rawTicket = RawTicket.builder()
+                    .clientGuid(clientGuid)
+                    .description(summary)
+                    .clientSegment(deriveSegment(request.getPriority()))
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            rawTicket = rawTicketRepository.save(rawTicket);
         }
-        RawTicket rawTicket = rawTicketRepository.findById(request.getRawTicketId())
-                .orElseThrow(() -> new IllegalArgumentException("Raw ticket not found: " + request.getRawTicketId()));
-        enrichedTicketRepository.findByRawTicketId(request.getRawTicketId()).ifPresent(existing -> {
-            throw new IllegalArgumentException("Enriched ticket already exists for rawTicketId: " + request.getRawTicketId());
-        });
 
         EnrichedTicket ticket = EnrichedTicket.builder()
                 .rawTicket(rawTicket)
@@ -59,6 +70,13 @@ public class EnrichedTicketService {
                 .build();
         EnrichedTicket saved = enrichedTicketRepository.save(ticket);
         return toResponse(saved);
+    }
+
+    private String deriveSegment(Integer priority) {
+        if (priority == null) return "Mass";
+        if (priority >= 8) return "VIP";
+        if (priority >= 6) return "Priority";
+        return "Mass";
     }
 
     @Transactional
