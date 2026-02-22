@@ -39,14 +39,12 @@ const defaultStats: DashboardStats = {
 
 const panelSx = {
   p: 3,
-  borderRadius: 4,
-  border: '1px solid rgba(10, 21, 18, 0.08)',
-  background:
-    'linear-gradient(150deg, rgba(255,255,255,0.93) 0%, rgba(244,251,248,0.86) 68%, rgba(251,246,237,0.88) 100%)',
-  transition: 'transform 180ms ease, box-shadow 180ms ease',
+  borderRadius: '12px',
+  border: '1px solid rgba(17, 24, 39, 0.08)',
+  background: '#ffffff',
+  transition: 'box-shadow 160ms ease',
   '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 14px 30px rgba(10, 21, 18, 0.08)'
+    boxShadow: '0 10px 24px rgba(17, 24, 39, 0.08)'
   }
 };
 
@@ -147,7 +145,7 @@ export function Dashboard() {
           label: 'Обращения',
           data: stats.byCity.map((item) => item.count),
           backgroundColor: 'rgba(47, 127, 107, 0.6)',
-          borderRadius: 10
+          borderRadius: 2
         }
       ]
     };
@@ -474,8 +472,7 @@ export function Dashboard() {
               elevation={0}
               sx={{
                 ...panelSx,
-                background:
-                  'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,251,248,0.9) 70%, rgba(253,247,237,0.9) 100%)'
+                background: 'rgba(255, 255, 255, 0.92)'
               }}
             >
               <Stack spacing={2}>
@@ -529,10 +526,10 @@ export function Dashboard() {
                       alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
                       maxWidth: '88%',
                       p: 2,
-                      borderRadius: 3,
+                      borderRadius: '6px',
                       background:
                         message.role === 'user'
-                          ? 'linear-gradient(120deg, rgba(47, 127, 107, 0.22), rgba(89, 182, 154, 0.16))'
+                          ? 'rgba(47, 127, 107, 0.10)'
                           : 'rgba(10, 21, 18, 0.04)'
                     }}
                   >
@@ -551,10 +548,9 @@ export function Dashboard() {
                         elevation={0}
                         sx={{
                           p: 2.5,
-                          borderRadius: 3,
+                          borderRadius: '6px',
                           border: '1px solid rgba(10, 21, 18, 0.08)',
-                          background:
-                            'linear-gradient(145deg, rgba(255,255,255,0.94) 0%, rgba(246,252,249,0.88) 65%, rgba(251,246,236,0.9) 100%)'
+                          background: 'rgba(255, 255, 255, 0.92)'
                         }}
                       >
                         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>

@@ -132,10 +132,9 @@ export function ImportCenter() {
             elevation={0}
             sx={{
               p: 4,
-              borderRadius: 4,
-              border: '1px solid rgba(10, 21, 18, 0.08)',
-              background:
-                'linear-gradient(145deg, rgba(255,255,255,0.94) 0%, rgba(246,252,249,0.88) 65%, rgba(251,246,236,0.9) 100%)'
+              borderRadius: '12px',
+              border: '1px solid rgba(17, 24, 39, 0.08)',
+              background: '#ffffff'
             }}
           >
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
@@ -173,9 +172,9 @@ export function ImportCenter() {
                 component="label"
                 startIcon={<UploadFileIcon />}
                 sx={{
-                  borderColor: 'rgba(47, 127, 107, 0.5)',
-                  color: '#1f2e29',
-                  '&:hover': { borderColor: 'rgba(47, 127, 107, 0.8)', bgcolor: 'rgba(47, 127, 107, 0.06)' }
+                  borderColor: 'rgba(31, 111, 235, 0.4)',
+                  color: '#1f2937',
+                  '&:hover': { borderColor: 'rgba(31, 111, 235, 0.65)', bgcolor: 'rgba(31, 111, 235, 0.05)' }
                 }}
               >
                 Выбрать CSV
@@ -186,7 +185,7 @@ export function ImportCenter() {
                   label={file.name}
                   onDelete={() => setFile(null)}
                   size="small"
-                  sx={{ bgcolor: 'rgba(47, 127, 107, 0.12)', color: '#1f2e29' }}
+                  sx={{ bgcolor: 'rgba(31, 111, 235, 0.12)', color: '#1f2937' }}
                 />
               )}
               <Button
@@ -194,8 +193,8 @@ export function ImportCenter() {
                 disabled={!file || loading}
                 onClick={handleUpload}
                 sx={{
-                  bgcolor: '#2f7f6b',
-                  '&:hover': { bgcolor: '#215546' }
+                  bgcolor: '#1f6feb',
+                  '&:hover': { bgcolor: '#1858bd' }
                 }}
               >
                 {loading ? 'Отправка…' : `Загрузить ${DATASET_LABEL[dataset].toLowerCase()}`}
@@ -219,10 +218,9 @@ export function ImportCenter() {
               elevation={0}
               sx={{
                 p: 3,
-                borderRadius: 4,
-                border: '1px solid rgba(10, 21, 18, 0.08)',
-                background:
-                  'linear-gradient(145deg, rgba(255,255,255,0.93) 0%, rgba(244,251,248,0.86) 68%, rgba(251,246,237,0.88) 100%)'
+                borderRadius: '12px',
+                border: '1px solid rgba(17, 24, 39, 0.08)',
+                background: '#ffffff'
               }}
             >
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>

@@ -14,25 +14,24 @@ export function StatCard({ label, value, helper, icon }: StatCardProps) {
       elevation={0}
       sx={{
         p: 3,
-        borderRadius: 4,
-        border: '1px solid rgba(10, 21, 18, 0.08)',
-        background:
-          'linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 252, 249, 0.86) 65%, rgba(250, 246, 235, 0.88) 100%)',
-        transition: 'transform 200ms ease, box-shadow 200ms ease',
+        borderRadius: '12px',
+        border: '1px solid rgba(17, 24, 39, 0.08)',
+        background: '#ffffff',
+        transition: 'box-shadow 160ms ease, transform 160ms ease',
         '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 14px 30px rgba(10, 21, 18, 0.08)'
+          boxShadow: '0 10px 24px rgba(17, 24, 39, 0.08)',
+          transform: 'translateY(-1px)'
         }
       }}
     >
-      <Typography variant="overline" sx={{ color: 'rgba(10, 21, 18, 0.62)', letterSpacing: 1.2 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 0.8 }}>
         {label}
       </Typography>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5, letterSpacing: -0.4 }}>
+      <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, letterSpacing: -0.3 }}>
         {value}
       </Typography>
       {helper ? (
-        <Typography variant="body2" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {helper}
         </Typography>
       ) : null}

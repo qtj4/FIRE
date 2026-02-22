@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
+  Button,
   Chip,
   Divider,
   Drawer,
   FormControl,
-  InputLabel,
+  Grid,
   IconButton,
+  InputLabel,
   MenuItem,
   Pagination,
   Paper,
@@ -16,6 +18,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -36,10 +39,9 @@ const segmentStyles: Record<string, { bg: string; color: string }> = {
 
 const panelSx = {
   p: 3,
-  borderRadius: 4,
-  border: '1px solid rgba(10, 21, 18, 0.08)',
-  background:
-    'linear-gradient(145deg, rgba(255,255,255,0.94) 0%, rgba(246,252,249,0.88) 64%, rgba(251,246,236,0.9) 100%)'
+  borderRadius: '12px',
+  border: '1px solid rgba(17, 24, 39, 0.08)',
+  background: '#ffffff'
 };
 
 export function TicketList() {
@@ -107,10 +109,21 @@ export function TicketList() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const paginated = filtered.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  const avgPriority = filtered.length ? filtered.reduce((sum, item) => sum + item.priority, 0) / filtered.length : 0;
+  const unassignedCount = filtered.filter((item) => !item.assignedManager).length;
+  const highPriorityCount = filtered.filter((item) => item.priority >= 8).length;
+  const activeFiltersCount = [segment, type, sentiment].filter((value) => value !== 'all').length + (query.trim() ? 1 : 0);
+  const updatedAtLabel = new Date().toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
 
   useEffect(() => {
     setPage(1);
   }, [segment, type, sentiment, query]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const formatDate = (value?: string, withTime = false) => {
     if (!value) return '—';
@@ -125,6 +138,13 @@ export function TicketList() {
   const formatValue = (value?: string | number) =>
     value === null || value === undefined || value === '' ? '—' : String(value);
 
+  const resetFilters = () => {
+    setQuery('');
+    setSegment('all');
+    setType('all');
+    setSentiment('all');
+  };
+
   const coords =
     selectedTicket && selectedTicket.latitude !== undefined && selectedTicket.longitude !== undefined
       ? `${selectedTicket.latitude.toFixed(5)}, ${selectedTicket.longitude.toFixed(5)}`
@@ -133,161 +153,239 @@ export function TicketList() {
   return (
     <PageShell
       title="Список обращений"
-      subtitle="Фильтруйте обращения по сегменту, типу и тональности перед распределением"
-    >
-      <Paper
-        elevation={0}
-        sx={panelSx}
-      >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mb={3}>
-          <TextField
-            label="Поиск"
-            placeholder="Описание, город, офис"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            fullWidth
-          />
-          <FormControl sx={{ minWidth: 170 }}>
-            <InputLabel id="segment-label">Сегмент</InputLabel>
-            <Select
-              labelId="segment-label"
-              label="Сегмент"
-              value={segment}
-              onChange={(event) => setSegment(event.target.value)}
-            >
-              <MenuItem value="all">Все</MenuItem>
-              {segments.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: 190 }}>
-            <InputLabel id="type-label">Тип обращения</InputLabel>
-            <Select
-              labelId="type-label"
-              label="Тип обращения"
-              value={type}
-              onChange={(event) => setType(event.target.value)}
-            >
-              <MenuItem value="all">Все</MenuItem>
-              {types.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: 170 }}>
-            <InputLabel id="sentiment-label">Тональность</InputLabel>
-            <Select
-              labelId="sentiment-label"
-              label="Тональность"
-              value={sentiment}
-              onChange={(event) => setSentiment(event.target.value)}
-            >
-              <MenuItem value="all">Все</MenuItem>
-              {sentiments.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+      subtitle="Операционный реестр обращений: фильтрация, приоритеты и доступ к деталям в одном рабочем окне"
+      maxWidth="xl"
+      actions={
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
+          <Chip size="small" label={`Записи: ${filtered.length}`} />
+          <Chip size="small" variant="outlined" label={`Фильтры: ${activeFiltersCount}`} />
+          <Chip size="small" variant="outlined" label={`Обновлено: ${updatedAtLabel}`} />
         </Stack>
+      }
+    >
+      <Stack spacing={2.5}>
+        <Paper elevation={0} sx={panelSx}>
+          <Stack spacing={2}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
+              <TextField
+                label="Поиск"
+                placeholder="Описание, summary, город или офис"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                fullWidth
+              />
+              <FormControl sx={{ minWidth: { xs: '100%', md: 170 } }}>
+                <InputLabel id="segment-label">Сегмент</InputLabel>
+                <Select
+                  labelId="segment-label"
+                  label="Сегмент"
+                  value={segment}
+                  onChange={(event) => setSegment(event.target.value)}
+                >
+                  <MenuItem value="all">Все</MenuItem>
+                  {segments.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl sx={{ minWidth: { xs: '100%', md: 190 } }}>
+                <InputLabel id="type-label">Тип обращения</InputLabel>
+                <Select labelId="type-label" label="Тип обращения" value={type} onChange={(event) => setType(event.target.value)}>
+                  <MenuItem value="all">Все</MenuItem>
+                  {types.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl sx={{ minWidth: { xs: '100%', md: 170 } }}>
+                <InputLabel id="sentiment-label">Тональность</InputLabel>
+                <Select
+                  labelId="sentiment-label"
+                  label="Тональность"
+                  value={sentiment}
+                  onChange={(event) => setSentiment(event.target.value)}
+                >
+                  <MenuItem value="all">Все</MenuItem>
+                  {sentiments.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button variant="outlined" onClick={resetFilters} sx={{ minWidth: 132 }}>
+                Сбросить
+              </Button>
+            </Stack>
+
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ p: 1.5, border: '1px solid rgba(17, 24, 39, 0.1)', borderRadius: '10px', background: '#fff' }}>
+                  <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.6)', textTransform: 'uppercase' }}>
+                    Найдено
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {filtered.length}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ p: 1.5, border: '1px solid rgba(17, 24, 39, 0.1)', borderRadius: '10px', background: '#fff' }}>
+                  <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.6)', textTransform: 'uppercase' }}>
+                    Средний приоритет
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {avgPriority.toFixed(1)}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ p: 1.5, border: '1px solid rgba(17, 24, 39, 0.1)', borderRadius: '10px', background: '#fff' }}>
+                  <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.6)', textTransform: 'uppercase' }}>
+                    Без назначения
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {unassignedCount}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ p: 1.5, border: '1px solid rgba(17, 24, 39, 0.1)', borderRadius: '10px', background: '#fff' }}>
+                  <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.6)', textTransform: 'uppercase' }}>
+                    Высокий приоритет
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {highPriorityCount}
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Stack>
+        </Paper>
 
         {loading ? (
-          <Typography variant="body1">Загрузка обращений...</Typography>
+          <Paper elevation={0} sx={{ ...panelSx, py: 4 }}>
+            <Typography variant="body1">Загрузка обращений...</Typography>
+          </Paper>
         ) : error ? (
-          <Alert severity="error">{error}</Alert>
+          <Paper elevation={0} sx={panelSx}>
+            <Alert severity="error">{error}</Alert>
+          </Paper>
         ) : (
-          <>
-            <Table
-              size="small"
-              sx={{
-                '& .MuiTableRow-root:hover': {
-                  background: 'rgba(47, 127, 107, 0.06)'
-                }
-              }}
-            >
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Сегмент</TableCell>
-                  <TableCell>Тип</TableCell>
-                  <TableCell>Описание</TableCell>
-                  <TableCell>Город</TableCell>
-                  <TableCell>Приоритет</TableCell>
-                  <TableCell>Менеджер</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginated.map((ticket) => (
-                  <TableRow
-                    key={ticket.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => setSelectedTicket(ticket)}
-                  >
-                    <TableCell sx={{ fontWeight: 700 }}>{ticket.id}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={ticket.segment}
-                        sx={{
-                          backgroundColor: segmentStyles[ticket.segment]?.bg ?? 'rgba(31, 46, 41, 0.08)',
-                          color: segmentStyles[ticket.segment]?.color ?? '#1f2e29',
-                          fontWeight: 600
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{ticket.type}</TableCell>
-                    <TableCell sx={{ maxWidth: 320 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {ticket.description}
-                      </Typography>
-                      {ticket.summary ? (
-                        <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
-                          {ticket.summary}
-                        </Typography>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>{ticket.city ?? '—'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={`${ticket.priority}/10`}
-                        sx={{ fontWeight: 600 }}
-                      />
-                    </TableCell>
-                    <TableCell>{ticket.assignedManager ?? '—'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
+          <Paper elevation={0} sx={panelSx}>
             {filtered.length === 0 ? (
-              <Box sx={{ mt: 3 }}>
-                <Alert severity="info">Нет обращений по выбранным фильтрам.</Alert>
-              </Box>
+              <Alert severity="info">Нет обращений по выбранным фильтрам.</Alert>
             ) : (
-              <Stack direction="row" justifyContent="space-between" alignItems="center" mt={3}>
-                <Typography variant="body2" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
-                  Найдено: {filtered.length}
-                </Typography>
-                <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={(_, value) => setPage(value)}
-                  color="standard"
-                />
-              </Stack>
+              <>
+                <TableContainer sx={{ border: '1px solid rgba(17, 24, 39, 0.08)', borderRadius: '10px', maxHeight: 640 }}>
+                  <Table
+                    stickyHeader
+                    size="small"
+                    sx={{
+                      tableLayout: 'fixed',
+                      width: '100%',
+                      minWidth: 1260,
+                      '& .MuiTableRow-root:hover': {
+                        background: 'rgba(10, 21, 18, 0.03)'
+                      }
+                    }}
+                  >
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: '7%', whiteSpace: 'nowrap' }}>ID</TableCell>
+                        <TableCell sx={{ width: '8%', whiteSpace: 'nowrap' }}>Сегмент</TableCell>
+                        <TableCell sx={{ width: '10%', whiteSpace: 'nowrap' }}>Тип</TableCell>
+                        <TableCell sx={{ width: '27%' }}>Описание</TableCell>
+                        <TableCell sx={{ width: '7%', whiteSpace: 'nowrap' }}>Language</TableCell>
+                        <TableCell sx={{ width: '9%', whiteSpace: 'nowrap' }}>Sentiment</TableCell>
+                        <TableCell sx={{ width: '7%', whiteSpace: 'nowrap' }}>Локация</TableCell>
+                        <TableCell sx={{ width: '7%', whiteSpace: 'nowrap' }}>Приоритет</TableCell>
+                        <TableCell sx={{ width: '11%', whiteSpace: 'nowrap' }}>Менеджер</TableCell>
+                        <TableCell sx={{ width: '9%', whiteSpace: 'nowrap' }}>Создано</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {paginated.map((ticket) => (
+                        <TableRow key={ticket.id} hover sx={{ cursor: 'pointer' }} onClick={() => setSelectedTicket(ticket)}>
+                          <TableCell sx={{ fontWeight: 700 }}>{ticket.id}</TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={ticket.segment}
+                              sx={{
+                                backgroundColor: segmentStyles[ticket.segment]?.bg ?? 'rgba(31, 46, 41, 0.08)',
+                                color: segmentStyles[ticket.segment]?.color ?? '#1f2e29',
+                                fontWeight: 600
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {ticket.type}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.25, lineHeight: 1.35, wordBreak: 'break-word' }}>
+                              {ticket.description}
+                            </Typography>
+                            {ticket.summary ? (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'rgba(10, 21, 18, 0.62)',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden'
+                                }}
+                              >
+                                {ticket.summary}
+                              </Typography>
+                            ) : null}
+                          </TableCell>
+                          <TableCell>{ticket.language ?? '—'}</TableCell>
+                          <TableCell>{ticket.sentiment ?? '—'}</TableCell>
+                          <TableCell>{ticket.city ?? '—'}</TableCell>
+                          <TableCell>
+                            <Chip size="small" variant="outlined" label={`${ticket.priority}/10`} sx={{ fontWeight: 600 }} />
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              title={ticket.assignedManager ?? '—'}
+                              sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            >
+                              {ticket.assignedManager ?? '—'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.createdAt)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  mt={2.5}
+                  spacing={1}
+                >
+                  <Typography variant="body2" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
+                    Записей: {filtered.length} • Страница {page} из {totalPages}
+                  </Typography>
+                  <Pagination count={totalPages} page={page} onChange={(_, value) => setPage(value)} color="standard" />
+                </Stack>
+              </>
             )}
-          </>
+          </Paper>
         )}
-      </Paper>
+      </Stack>
 
       <Drawer
         anchor="right"
@@ -295,9 +393,10 @@ export function TicketList() {
         onClose={() => setSelectedTicket(null)}
         PaperProps={{
           sx: {
-            width: { xs: '100%', sm: 420, md: 480 },
+            width: { xs: '100%', sm: 440, md: 520 },
             p: 3,
-            borderLeft: '1px solid rgba(10, 21, 18, 0.08)'
+            borderLeft: '1px solid rgba(10, 21, 18, 0.12)',
+            background: 'rgba(255, 255, 255, 0.98)'
           }
         }}
       >
@@ -377,9 +476,7 @@ export function TicketList() {
               </Typography>
               <Typography variant="body2">Офис: {formatValue(selectedTicket.office)}</Typography>
               <Typography variant="body2">Менеджер: {formatValue(selectedTicket.assignedManager)}</Typography>
-              <Typography variant="body2">
-                Дата обращения: {formatDate(selectedTicket.createdAt, true)}
-              </Typography>
+              <Typography variant="body2">Дата обращения: {formatDate(selectedTicket.createdAt, true)}</Typography>
             </Stack>
 
             <Divider />

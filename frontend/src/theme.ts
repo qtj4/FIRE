@@ -4,44 +4,59 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#2f7f6b',
-      dark: '#215546',
-      light: '#59b69a'
+      main: '#1f6feb',
+      dark: '#1858bd',
+      light: '#4b8df0'
     },
     secondary: {
-      main: '#c78f2c'
+      main: '#0f766e'
     },
     background: {
-      default: '#f7f3ea',
-      paper: 'rgba(255, 255, 255, 0.9)'
+      default: '#f5f7fb',
+      paper: '#ffffff'
     },
     text: {
-      primary: '#0a1512',
-      secondary: 'rgba(10, 21, 18, 0.7)'
+      primary: '#111827',
+      secondary: '#4b5563'
     }
   },
   typography: {
-    fontFamily: '"Space Grotesk", "Segoe UI", sans-serif',
+    fontFamily: '"Manrope", "Segoe UI", sans-serif',
     button: {
-      fontWeight: 700
+      fontWeight: 600
     },
     h4: {
-      fontWeight: 800
+      fontWeight: 700
     },
     h6: {
       fontWeight: 700
+    },
+    body1: {
+      lineHeight: 1.6
+    },
+    body2: {
+      lineHeight: 1.55
     }
   },
   shape: {
-    borderRadius: 16
+    borderRadius: 10
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          textRendering: 'optimizeLegibility',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale'
+        }
+      }
+    },
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: 'none',
-          borderRadius: 999,
-          fontWeight: 700
+          borderRadius: 10,
+          fontWeight: 600
         }
       }
     },
@@ -49,7 +64,7 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 999,
-          fontWeight: 700
+          fontWeight: 600
         }
       }
     },
@@ -58,8 +73,9 @@ export const theme = createTheme({
         root: {
           '& .MuiTableCell-root': {
             fontWeight: 700,
-            color: 'rgba(10, 21, 18, 0.8)',
-            borderBottomColor: 'rgba(10, 21, 18, 0.12)'
+            color: '#374151',
+            borderBottomColor: 'rgba(17, 24, 39, 0.1)',
+            backgroundColor: '#f8fafc'
           }
         }
       }
@@ -76,8 +92,7 @@ export const theme = createTheme({
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          background:
-            'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(244,251,248,0.94) 70%, rgba(251,246,237,0.94) 100%)'
+          background: '#ffffff'
         }
       }
     },
@@ -85,7 +100,7 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          boxShadow: '0 6px 24px rgba(10, 21, 18, 0.05)'
+          boxShadow: '0 1px 2px rgba(17, 24, 39, 0.06), 0 8px 24px rgba(17, 24, 39, 0.04)'
         }
       }
     },
@@ -93,9 +108,14 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 14
+            borderRadius: 10
           }
         }
+      }
+    },
+    MuiContainer: {
+      defaultProps: {
+        maxWidth: 'lg'
       }
     }
   }

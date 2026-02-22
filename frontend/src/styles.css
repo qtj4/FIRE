@@ -1,15 +1,15 @@
 :root {
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-family: "Manrope", "Segoe UI", sans-serif;
   color-scheme: light;
-  --ink-900: #0a1512;
-  --ink-700: #1f2e29;
-  --surface-100: #f8f6f0;
-  --surface-200: #f1ece2;
-  --surface-300: #e5ddd0;
-  --accent-600: #2f7f6b;
-  --accent-500: #3c9781;
-  --accent-400: #59b69a;
-  --gold-500: #c78f2c;
+  --ink-900: #111827;
+  --ink-700: #374151;
+  --surface-100: #f5f7fb;
+  --surface-200: #eef2f8;
+  --surface-300: #dde5f0;
+  --accent-600: #1f6feb;
+  --accent-500: #3b82f6;
+  --accent-400: #60a5fa;
+  --line: rgba(17, 24, 39, 0.1);
 }
 
 * {
@@ -20,27 +20,11 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--ink-900);
-  background-image:
-    radial-gradient(circle at 8% 18%, rgba(89, 182, 154, 0.2), transparent 45%),
-    radial-gradient(circle at 85% 2%, rgba(199, 143, 44, 0.2), transparent 38%),
-    radial-gradient(circle at 52% 86%, rgba(60, 151, 129, 0.12), transparent 35%),
-    linear-gradient(130deg, #f7f3ea 0%, #f2efe8 42%, #f5f2ec 100%);
-  background-attachment: fixed;
+  background: radial-gradient(circle at top right, #eef4ff 0%, #f5f7fb 40%, #f5f7fb 100%);
 }
 
 #root {
   min-height: 100vh;
-}
-
-#root::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: linear-gradient(rgba(10, 21, 18, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(10, 21, 18, 0.03) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(circle at center, black 30%, transparent 100%);
 }
 
 a {
@@ -49,5 +33,5 @@ a {
 }
 
 ::selection {
-  background: rgba(47, 127, 107, 0.2);
+  background: rgba(31, 111, 235, 0.22);
 }
