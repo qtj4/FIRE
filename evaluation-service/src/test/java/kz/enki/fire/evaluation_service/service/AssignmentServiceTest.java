@@ -1,5 +1,7 @@
 package kz.enki.fire.evaluation_service.service;
 
+import kz.enki.fire.evaluation_service.dto.kafka.EnrichedTicketEvent;
+import kz.enki.fire.evaluation_service.mapper.EnrichedTicketMapper;
 import kz.enki.fire.evaluation_service.model.EnrichedTicket;
 import kz.enki.fire.evaluation_service.model.Manager;
 import kz.enki.fire.evaluation_service.model.Office;
@@ -38,6 +40,9 @@ class AssignmentServiceTest {
 
     @Mock
     private ManagerRepository managerRepository;
+
+    @Mock
+    private EnrichedTicketMapper enrichedTicketMapper;
 
     @InjectMocks
     private AssignmentService assignmentService;
@@ -87,6 +92,21 @@ class AssignmentServiceTest {
                 .skills("RU")
                 .activeTicketsCount(0)
                 .build();
+
+        lenient().when(enrichedTicketMapper.toEvent(any(EnrichedTicket.class)))
+                .thenAnswer(invocation -> {
+                    EnrichedTicket source = invocation.getArgument(0);
+                    return EnrichedTicketEvent.builder()
+                            .enrichedTicketId(source.getId())
+                            .clientGuid(source.getClientGuid())
+                            .type(source.getType())
+                            .priority(source.getPriority())
+                            .language(source.getLanguage())
+                            .sentiment(source.getSentiment())
+                            .latitude(source.getLatitude())
+                            .longitude(source.getLongitude())
+                            .build();
+                });
     }
 
     @Nested
@@ -126,6 +146,33 @@ class AssignmentServiceTest {
 
             verify(enrichedTicketRepository).save(any(EnrichedTicket.class));
             verify(managerRepository).save(any(Manager.class));
+        }
+
+        @Test
+        @DisplayName("распределяет зарубежные обращения по правилу 50/50 между Астаной и Алматы")
+        void splitsForeignCountryBetweenAstanaAndAlmaty() {
+            rawTicket.setCountry("Россия");
+
+            Manager almatyManager = Manager.builder()
+                    .id(2L)
+                    .fullName("Алматы менеджер")
+                    .officeName("Алматы")
+                    .position("менеджер")
+                    .skills("RU")
+                    .activeTicketsCount(0)
+                    .build();
+
+            when(enrichedTicketRepository.findById(1L)).thenReturn(Optional.of(ticket));
+            when(officeRepository.findAll()).thenReturn(List.of(officeAstana, officeAlmaty));
+            when(managerRepository.findByOfficeName("Астана")).thenReturn(List.of(manager));
+            when(managerRepository.findByOfficeName("Алматы")).thenReturn(List.of(almatyManager));
+
+            assignmentService.assignManager(1L);
+
+            ArgumentCaptor<EnrichedTicket> ticketCaptor = ArgumentCaptor.forClass(EnrichedTicket.class);
+            verify(enrichedTicketRepository).save(ticketCaptor.capture());
+            assertThat(ticketCaptor.getValue().getAssignedOffice().getName())
+                    .isIn("Астана", "Алматы");
         }
 
         @Test

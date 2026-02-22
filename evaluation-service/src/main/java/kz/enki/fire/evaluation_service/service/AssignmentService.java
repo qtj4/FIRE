@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,9 +30,18 @@ public class AssignmentService {
     private final OfficeRepository officeRepository;
     private final ManagerRepository managerRepository;
     private final EnrichedTicketMapper enrichedTicketMapper;
+    private final AtomicLong astanaAlmatyCounter = new AtomicLong(0);
 
     private static final Set<String> ASTANA_ALIASES = Set.of("астана", "astana", "нур-султан", "nur-sultan");
     private static final Set<String> ALMATY_ALIASES = Set.of("алматы", "almaty", "алма-ата", "alma-ata");
+    private static final Set<String> KAZAKHSTAN_ALIASES = Set.of(
+            "казахстан",
+            "қазақстан",
+            "республика казахстан",
+            "republic of kazakhstan",
+            "kz",
+            "kazakhstan"
+    );
 
     @Transactional
     public void assignManager(Long enrichedTicketId) {
@@ -97,6 +107,13 @@ public class AssignmentService {
 
     private Office selectOffice(EnrichedTicket ticket) {
         List<Office> offices = officeRepository.findAll();
+        if (offices.isEmpty()) {
+            return null;
+        }
+
+        if (shouldSplitByRule(ticket)) {
+            return splitUnknownAddress(offices);
+        }
 
         if (ticket.getLatitude() != null && ticket.getLongitude() != null) {
             return offices.stream()
@@ -105,24 +122,91 @@ public class AssignmentService {
                     .orElse(null);
         }
 
+        log.warn(
+                "Ticket {} has no coordinates; fallback to 50/50 between Astana and Almaty",
+                ticket.getId()
+        );
         return splitUnknownAddress(offices);
     }
 
     private Office splitUnknownAddress(List<Office> offices) {
-        if (offices.isEmpty()) return null;
-        long astanaCount = offices.stream().filter(o -> isAstana(o.getName())).count();
-        long almatyCount = offices.stream().filter(o -> isAlmaty(o.getName())).count();
-        if (astanaCount > 0 && almatyCount > 0) {
-            int total = offices.size();
-            int idx = (int) (System.currentTimeMillis() % 2);
-            return offices.stream()
-                    .filter(o -> isAstana(o.getName()) || isAlmaty(o.getName()))
-                    .sorted(Comparator.comparing(o -> isAstana(o.getName()) ? 0 : 1))
-                    .skip(idx)
-                    .findFirst()
-                    .orElse(offices.get(0));
+        if (offices.isEmpty()) {
+            return null;
         }
-        return offices.get(0);
+
+        List<Office> astanaOffices = offices.stream()
+                .filter(o -> isAstana(o.getName()))
+                .sorted(Comparator.comparing(Office::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+        List<Office> almatyOffices = offices.stream()
+                .filter(o -> isAlmaty(o.getName()))
+                .sorted(Comparator.comparing(Office::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        if (!astanaOffices.isEmpty() && !almatyOffices.isEmpty()) {
+            long turn = astanaAlmatyCounter.getAndIncrement();
+            boolean pickAstana = turn % 2 == 0;
+            List<Office> cityPool = pickAstana ? astanaOffices : almatyOffices;
+            int cityIndex = (int) ((turn / 2) % cityPool.size());
+            return cityPool.get(cityIndex);
+        }
+        if (!astanaOffices.isEmpty()) {
+            long turn = astanaAlmatyCounter.getAndIncrement();
+            return astanaOffices.get((int) (turn % astanaOffices.size()));
+        }
+        if (!almatyOffices.isEmpty()) {
+            long turn = astanaAlmatyCounter.getAndIncrement();
+            return almatyOffices.get((int) (turn % almatyOffices.size()));
+        }
+
+        return offices.get((int) (Math.abs(astanaAlmatyCounter.getAndIncrement()) % offices.size()));
+    }
+
+    private boolean shouldSplitByRule(EnrichedTicket ticket) {
+        if (ticket == null) {
+            return true;
+        }
+
+        String country = ticket.getRawTicket() != null ? ticket.getRawTicket().getCountry() : null;
+        if (isForeignCountry(country)) {
+            log.info("Applying 50/50 split for foreign ticket country={}", country);
+            return true;
+        }
+
+        if (isUnknownAddress(ticket)) {
+            log.info("Applying 50/50 split for ticket with unknown address, clientGuid={}", ticket.getClientGuid());
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isUnknownAddress(EnrichedTicket ticket) {
+        if (ticket == null) {
+            return true;
+        }
+        if (ticket.getLatitude() != null && ticket.getLongitude() != null) {
+            return false;
+        }
+        if (ticket.getRawTicket() == null) {
+            return true;
+        }
+        return isBlank(ticket.getRawTicket().getCountry())
+                && isBlank(ticket.getRawTicket().getRegion())
+                && isBlank(ticket.getRawTicket().getCity())
+                && isBlank(ticket.getRawTicket().getStreet())
+                && isBlank(ticket.getRawTicket().getHouseNumber());
+    }
+
+    private boolean isForeignCountry(String country) {
+        if (isBlank(country)) {
+            return false;
+        }
+        String normalized = country.toLowerCase().trim();
+        return !KAZAKHSTAN_ALIASES.contains(normalized);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private boolean isAstana(String name) {

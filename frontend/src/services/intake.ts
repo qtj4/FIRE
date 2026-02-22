@@ -47,3 +47,26 @@ export async function fetchRecentIntakeResults(limit = 50): Promise<TicketProces
   const { data } = await intakeApi.get<TicketProcessingResult[]>(`/api/v1/intake/results/recent?limit=${safeLimit}`);
   return Array.isArray(data) ? data : [];
 }
+
+export interface IntakeGeocodeResponse {
+  address: string;
+  lat: number;
+  lon: number;
+  source_url?: string;
+}
+
+export async function geocodeIntakeAddress(address: string): Promise<IntakeGeocodeResponse | null> {
+  const normalized = address.trim();
+  if (!normalized) return null;
+  try {
+    const { data } = await intakeApi.get<IntakeGeocodeResponse>(
+      `/api/v1/intake/geocode?address=${encodeURIComponent(normalized)}`
+    );
+    if (!data || typeof data.lat !== 'number' || typeof data.lon !== 'number') {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}

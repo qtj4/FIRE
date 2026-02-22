@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { PageShell } from '@/components/PageShell';
+import { geocodeIntakeAddress } from '@/services/intake';
 import { fetchTickets } from '@/services/tickets';
 import type { Ticket } from '@/types';
 
@@ -69,6 +70,57 @@ const isVipTicket = (ticket: Ticket) => {
   return segmentValue === 'vip' || typeValue.includes('vip') || ticket.priority >= 8;
 };
 
+interface MapPoint {
+  lat: number;
+  lon: number;
+  label: string;
+  sourceUrl?: string;
+}
+
+const officeAddressBook: Array<{ aliases: string[]; address: string }> = [
+  { aliases: ['актау'], address: 'Казахстан, Актау, 17-й микрорайон, Бизнес-центр Urban, 22' },
+  { aliases: ['актобе'], address: 'Казахстан, Актобе, проспект Алии Молдагуловой, 44' },
+  { aliases: ['алматы', 'алматы центр'], address: 'Казахстан, Алматы, проспект Аль-Фараби, 77/7, Esentai Tower' },
+  { aliases: ['астана', 'астана бц', 'нур-султан'], address: 'Казахстан, Астана, Достык 16, Talan Towers' },
+  { aliases: ['атырау'], address: 'Казахстан, Атырау, улица Студенческая 52, БЦ Адал' }
+];
+
+const normalizeKey = (value?: string) =>
+  (value ?? '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^a-zа-я0-9]+/gi, ' ')
+    .trim();
+
+const resolveOfficeAddress = (officeName?: string) => {
+  const key = normalizeKey(officeName);
+  if (!key) return null;
+  const hit = officeAddressBook.find((entry) =>
+    entry.aliases.some((alias) => key.includes(normalizeKey(alias)) || normalizeKey(alias).includes(key))
+  );
+  return hit?.address ?? officeName ?? null;
+};
+
+const buildClientAddress = (ticket: Ticket) => {
+  const parts = [ticket.country, ticket.region, ticket.city, ticket.street, ticket.house]
+    .map((value) => (value ?? '').trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : null;
+};
+
+const buildStaticMapUrl = (points: MapPoint[]) => {
+  if (points.length === 0) return null;
+  const centerLat = points.reduce((sum, point) => sum + point.lat, 0) / points.length;
+  const centerLon = points.reduce((sum, point) => sum + point.lon, 0) / points.length;
+  const zoom = points.length > 1 ? 10 : 12;
+  const markers = points
+    .map((point, index) => `${point.lat},${point.lon},${index === 0 ? 'red' : 'blue'}-pushpin`)
+    .join('|');
+  return `https://staticmap.openstreetmap.de/staticmap.php?size=900x420&zoom=${zoom}&center=${centerLat},${centerLon}&markers=${encodeURIComponent(
+    markers
+  )}`;
+};
+
 export function TicketList() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +132,10 @@ export function TicketList() {
   const [queueTab, setQueueTab] = useState<QueueTab>('all');
   const [query, setQuery] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [clientPoint, setClientPoint] = useState<MapPoint | null>(null);
+  const [officePoint, setOfficePoint] = useState<MapPoint | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -164,6 +220,77 @@ export function TicketList() {
     }
   }, [page, totalPages]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    if (!selectedTicket) {
+      setClientPoint(null);
+      setOfficePoint(null);
+      setMapLoading(false);
+      setMapError(null);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadMapPoints = async () => {
+      setMapLoading(true);
+      setMapError(null);
+
+      let resolvedClientPoint: MapPoint | null = null;
+      let resolvedOfficePoint: MapPoint | null = null;
+
+      if (typeof selectedTicket.latitude === 'number' && typeof selectedTicket.longitude === 'number') {
+        resolvedClientPoint = {
+          lat: selectedTicket.latitude,
+          lon: selectedTicket.longitude,
+          label: 'Клиент'
+        };
+      } else {
+        const clientAddress = buildClientAddress(selectedTicket);
+        if (clientAddress) {
+          const geocodedClient = await geocodeIntakeAddress(clientAddress);
+          if (geocodedClient) {
+            resolvedClientPoint = {
+              lat: geocodedClient.lat,
+              lon: geocodedClient.lon,
+              label: 'Клиент',
+              sourceUrl: geocodedClient.source_url
+            };
+          }
+        }
+      }
+
+      const officeAddress = resolveOfficeAddress(selectedTicket.office);
+      if (officeAddress) {
+        const geocodedOffice = await geocodeIntakeAddress(officeAddress);
+        if (geocodedOffice) {
+          resolvedOfficePoint = {
+            lat: geocodedOffice.lat,
+            lon: geocodedOffice.lon,
+            label: selectedTicket.office ? `Офис: ${selectedTicket.office}` : 'Офис',
+            sourceUrl: geocodedOffice.source_url
+          };
+        }
+      }
+
+      if (!isActive) return;
+      setClientPoint(resolvedClientPoint);
+      setOfficePoint(resolvedOfficePoint);
+      if (!resolvedClientPoint && !resolvedOfficePoint) {
+        setMapError('Не удалось определить координаты клиента и офиса.');
+      } else {
+        setMapError(null);
+      }
+      setMapLoading(false);
+    };
+
+    void loadMapPoints();
+    return () => {
+      isActive = false;
+    };
+  }, [selectedTicket]);
+
   const formatDate = (value?: string, withTime = false) => {
     if (!value) return '—';
     const parsed = new Date(value);
@@ -189,6 +316,11 @@ export function TicketList() {
     selectedTicket && selectedTicket.latitude !== undefined && selectedTicket.longitude !== undefined
       ? `${selectedTicket.latitude.toFixed(5)}, ${selectedTicket.longitude.toFixed(5)}`
       : '—';
+  const mapPoints = useMemo(
+    () => [clientPoint, officePoint].filter((item): item is MapPoint => item !== null),
+    [clientPoint, officePoint]
+  );
+  const mapUrl = useMemo(() => buildStaticMapUrl(mapPoints), [mapPoints]);
 
   return (
     <PageShell
@@ -517,6 +649,47 @@ export function TicketList() {
               <Typography variant="body2">Улица: {formatValue(selectedTicket.street)}</Typography>
               <Typography variant="body2">Дом: {formatValue(selectedTicket.house)}</Typography>
               <Typography variant="body2">Координаты: {coords}</Typography>
+            </Stack>
+
+            <Divider />
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Карта клиента и офиса
+              </Typography>
+              {mapLoading ? <Typography variant="body2">Загружаю координаты...</Typography> : null}
+              {!mapLoading && mapUrl ? (
+                <Box
+                  component="img"
+                  src={mapUrl}
+                  alt="Карта клиента и офиса"
+                  sx={{
+                    width: '100%',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(17, 24, 39, 0.12)'
+                  }}
+                />
+              ) : null}
+              {!mapLoading && !mapUrl ? (
+                <Alert severity="info">{mapError ?? 'Недостаточно данных для построения карты.'}</Alert>
+              ) : null}
+              {mapPoints.length > 0 ? (
+                <Stack spacing={0.5}>
+                  {mapPoints.map((point) => (
+                    <Typography key={`${point.label}-${point.lat}-${point.lon}`} variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.72)' }}>
+                      {point.label}: {point.lat.toFixed(5)}, {point.lon.toFixed(5)}
+                      {point.sourceUrl ? (
+                        <>
+                          {' '}
+                          <a href={point.sourceUrl} target="_blank" rel="noreferrer">
+                            источник
+                          </a>
+                        </>
+                      ) : null}
+                    </Typography>
+                  ))}
+                </Stack>
+              ) : null}
             </Stack>
 
             <Divider />

@@ -23,7 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -77,15 +76,6 @@ public class TicketService {
             if (response != null && response.getGeo_normalized() != null) {
                 geoResult = geocodingService.geocode(response.getGeo_normalized());
             }
-            if (geoResult == null) {
-                String addressFromTicket = buildAddressFromRawTicket(rawTicket);
-                if (addressFromTicket != null && !addressFromTicket.isBlank()) {
-                    geoResult = geocodingService.geocode(addressFromTicket);
-                    if (geoResult != null) {
-                        log.debug("Resolved user location from raw ticket address for clientGuid={}", rawTicket.getClientGuid());
-                    }
-                }
-            }
 
             EnrichedTicket enrichedTicket = EnrichedTicket.builder()
                     .rawTicket(rawTicket)
@@ -121,22 +111,6 @@ public class TicketService {
             log.error("Failed to process ticket for client GUID: {}", req.getClientGuid(), e);
             return null;
         }
-    }
-
-    /** Собирает адрес из полей RawTicket для геокодинга (страна, регион, город, улица, дом). */
-    private String buildAddressFromRawTicket(RawTicket rawTicket) {
-        if (rawTicket == null) return null;
-        String parts = Stream.of(
-                        rawTicket.getCountry(),
-                        rawTicket.getRegion(),
-                        rawTicket.getCity(),
-                        rawTicket.getStreet(),
-                        rawTicket.getHouseNumber()
-                )
-                .filter(p -> p != null && !p.isBlank())
-                .reduce((a, b) -> a + ", " + b)
-                .orElse(null);
-        return parts != null && !parts.isBlank() ? parts.trim() : null;
     }
 
     @Transactional
