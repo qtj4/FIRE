@@ -23,8 +23,9 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 import { PageShell } from '@/components/PageShell';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { StatCard } from '@/components/StatCard';
+import { queryDashboardAssistant } from '@/services/assistant';
 import { fetchDashboardStats, fetchInsights, fetchServiceHealth } from '@/services/stats';
-import type { DashboardStats, InsightsResponse, ServiceHealth } from '@/types';
+import type { AssistantWidgetPlan, DashboardStats, InsightsResponse, ServiceHealth } from '@/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -97,6 +98,19 @@ const quickPrompts = [
   'Где больше всего обращений?'
 ];
 
+const accentBarPalette = [
+  'rgba(47, 127, 107, 0.75)',
+  'rgba(199, 143, 44, 0.7)',
+  'rgba(31, 46, 41, 0.6)',
+  'rgba(89, 182, 154, 0.7)',
+  'rgba(110, 90, 60, 0.6)',
+  'rgba(60, 151, 129, 0.7)'
+];
+
+function makeMessageId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [health, setHealth] = useState<ServiceHealth | null>(null);
@@ -104,6 +118,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assistantInput, setAssistantInput] = useState('');
+  const [assistantBusy, setAssistantBusy] = useState(false);
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([
     {
       id: 'assistant-welcome',
@@ -190,101 +205,178 @@ export function Dashboard() {
     [assistantMessages]
   );
 
-  const handleAssistantSubmit = () => {
-    const trimmed = assistantInput.trim();
-    if (!trimmed) return;
-
-    const normalize = (value: string) =>
-      value
-        .toLowerCase()
-        .replace(/[.,!?;:()]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    const tokens = normalize(trimmed);
-    const wantsCity = /город|географ|населен|регион|област/.test(tokens);
-    const wantsType = /тип|категор/.test(tokens);
-    const wantsSentiment = /тональн|эмоци|настроен/.test(tokens);
-    const wantsOffice = /офис|подраздел|бизнес-единиц/.test(tokens);
-    const wantsVip = /vip|премиум/.test(tokens);
-    const wantsPriority = /приоритет|срочн/.test(tokens);
-    const wantsVolume = /больше|топ|максим|лидер/.test(tokens);
-
+  const buildWidgetsFromPlans = (plans: AssistantWidgetPlan[]): AssistantWidget[] => {
     const widgets: AssistantWidget[] = [];
-    const makeId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const topCities = [...stats.byCity].sort((a, b) => b.count - a.count);
 
-    if (wantsType) {
-      widgets.push({
-        id: makeId(),
-        kind: 'bar',
-        title: 'Типы обращений',
-        data: byTypeData,
-        options: { indexAxis: 'y' }
-      });
-    }
-    if (wantsCity || wantsVolume) {
-      widgets.push({
-        id: makeId(),
-        kind: 'bar',
-        title: 'География обращений',
-        data: byCityData
-      });
-    }
-    if (wantsSentiment) {
-      widgets.push({
-        id: makeId(),
-        kind: 'doughnut',
-        title: 'Тональность обращений',
-        data: bySentimentData
-      });
-    }
-    if (wantsOffice) {
-      widgets.push({
-        id: makeId(),
-        kind: 'list',
-        title: 'Распределение по офисам',
-        items: stats.byOffice.map((item) => ({ label: item.office, value: item.count }))
-      });
-    }
-    if (wantsVip) {
-      widgets.push({
-        id: makeId(),
-        kind: 'stat',
-        title: 'Доля VIP обращений',
-        value: `${Math.round(stats.totals.vipShare * 100)}%`,
-        helper: 'От всех обращений'
-      });
-    }
-    if (wantsPriority) {
-      widgets.push({
-        id: makeId(),
-        kind: 'stat',
-        title: 'Средний приоритет',
-        value: stats.totals.avgPriority.toFixed(1),
-        helper: 'По шкале 1-10'
-      });
-    }
-    if (wantsVolume && stats.byCity.length > 0) {
-      const topCities = [...stats.byCity].sort((a, b) => b.count - a.count).slice(0, 3);
-      widgets.push({
-        id: makeId(),
-        kind: 'list',
-        title: 'Топ города по обращениям',
-        items: topCities.map((item) => ({ label: item.city, value: item.count }))
-      });
+    for (const plan of plans.slice(0, 4)) {
+      if (plan.kind === 'stat') {
+        if (plan.source === 'vipShare') {
+          widgets.push({
+            id: makeMessageId(),
+            kind: 'stat',
+            title: plan.title || 'Доля VIP обращений',
+            value: `${Math.round(stats.totals.vipShare * 100)}%`,
+            helper: plan.helper || 'От всех обращений'
+          });
+        } else if (plan.source === 'avgPriority') {
+          widgets.push({
+            id: makeMessageId(),
+            kind: 'stat',
+            title: plan.title || 'Средний приоритет',
+            value: stats.totals.avgPriority.toFixed(1),
+            helper: plan.helper || 'По шкале 1-10'
+          });
+        } else if (plan.source === 'inRouting') {
+          widgets.push({
+            id: makeMessageId(),
+            kind: 'stat',
+            title: plan.title || 'В маршрутизации',
+            value: stats.totals.inRouting.toLocaleString('ru-RU'),
+            helper: plan.helper || 'Ожидают назначения'
+          });
+        } else if (plan.source === 'ticketsTotal') {
+          widgets.push({
+            id: makeMessageId(),
+            kind: 'stat',
+            title: plan.title || 'Всего обращений',
+            value: stats.totals.tickets.toLocaleString('ru-RU'),
+            helper: plan.helper || 'За текущую смену'
+          });
+        }
+        continue;
+      }
+
+      if (plan.kind === 'list' && plan.source === 'topCities') {
+        const limit = Math.max(1, Math.min(10, plan.topN ?? 3));
+        widgets.push({
+          id: makeMessageId(),
+          kind: 'list',
+          title: plan.title || 'Топ города по обращениям',
+          items: topCities.slice(0, limit).map((item) => ({ label: item.city, value: item.count }))
+        });
+        continue;
+      }
+
+      const series =
+        plan.source === 'byCity'
+          ? stats.byCity.map((item) => ({ label: item.city, value: item.count }))
+          : plan.source === 'byType'
+            ? stats.byType.map((item) => ({ label: item.type, value: item.count }))
+            : plan.source === 'bySentiment'
+              ? stats.bySentiment.map((item) => ({ label: item.sentiment, value: item.count }))
+              : plan.source === 'byOffice'
+                ? stats.byOffice.map((item) => ({ label: item.office, value: item.count }))
+                : plan.source === 'byLanguage'
+                  ? stats.byLanguage.map((item) => ({ label: item.language, value: item.count }))
+                  : [];
+      if (!series.length) continue;
+
+      const limit = Math.max(1, Math.min(15, plan.topN ?? series.length));
+      const clipped = series.slice(0, limit);
+      if (plan.kind === 'list') {
+        widgets.push({
+          id: makeMessageId(),
+          kind: 'list',
+          title: plan.title,
+          items: clipped.map((item) => ({ label: item.label, value: item.value }))
+        });
+        continue;
+      }
+
+      if (plan.kind === 'bar') {
+        widgets.push({
+          id: makeMessageId(),
+          kind: 'bar',
+          title: plan.title,
+          data: {
+            labels: clipped.map((item) => item.label),
+            datasets: [
+              {
+                label: 'Количество',
+                data: clipped.map((item) => item.value),
+                backgroundColor:
+                  plan.source === 'byCity' ? 'rgba(47, 127, 107, 0.6)' : accentBarPalette,
+                borderRadius: 2
+              }
+            ]
+          },
+          options: plan.orientation === 'horizontal' ? { indexAxis: 'y' } : undefined
+        });
+        continue;
+      }
+
+      if (plan.kind === 'doughnut') {
+        widgets.push({
+          id: makeMessageId(),
+          kind: 'doughnut',
+          title: plan.title,
+          data: {
+            labels: clipped.map((item) => item.label),
+            datasets: [
+              {
+                data: clipped.map((item) => item.value),
+                backgroundColor: clipped.map((_, index) => accentBarPalette[index % accentBarPalette.length]),
+                borderWidth: 0
+              }
+            ]
+          }
+        });
+      }
     }
 
-    const response =
-      widgets.length > 0
-        ? `Готово! Построил виджеты: ${widgets.map((widget) => widget.title).join(', ')}.`
-        : 'Не нашел метрик для запроса. Попробуйте: “тип обращений”, “тональность”, “по городам”, “по офисам”, “доля VIP”.';
+    return widgets;
+  };
 
-    setAssistantMessages((prev) => [
-      ...prev,
-      { id: makeId(), role: 'user', content: trimmed },
-      { id: makeId(), role: 'assistant', content: response, widgets }
-    ]);
+  const handleAssistantSubmit = async () => {
+    const trimmed = assistantInput.trim();
+    if (!trimmed || assistantBusy) return;
+
+    const history = assistantMessages.slice(-8).map((message) => ({
+      role: message.role,
+      content: message.content
+    }));
+
     setAssistantInput('');
+    setAssistantBusy(true);
+    setAssistantMessages((prev) => [...prev, { id: makeMessageId(), role: 'user', content: trimmed }]);
+
+    try {
+      const result = await queryDashboardAssistant({
+        query: trimmed,
+        history
+      });
+      const widgets = buildWidgetsFromPlans(Array.isArray(result.widgets) ? result.widgets : []);
+      const content = (result.reply || '').trim() || 'Построил виджеты по вашему запросу.';
+      setAssistantMessages((prev) => [
+        ...prev,
+        {
+          id: makeMessageId(),
+          role: 'assistant',
+          content,
+          widgets
+        }
+      ]);
+    } catch (err) {
+      const fallbackWidgets = buildWidgetsFromPlans([
+        { kind: 'bar', source: 'byType', title: 'Типы обращений', orientation: 'horizontal' },
+        { kind: 'bar', source: 'byCity', title: 'География обращений' }
+      ]);
+      setAssistantMessages((prev) => [
+        ...prev,
+        {
+          id: makeMessageId(),
+          role: 'assistant',
+          content:
+            err instanceof Error
+              ? `Не удалось обратиться к AI-сервису (${err.message}). Построил базовые виджеты.`
+              : 'Не удалось обратиться к AI-сервису. Построил базовые виджеты.',
+          widgets: fallbackWidgets
+        }
+      ]);
+    } finally {
+      setAssistantBusy(false);
+    }
   };
 
   return (
@@ -481,23 +573,23 @@ export function Dashboard() {
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>
                       AI-ассистент
                     </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
-                    Задайте вопрос, и ассистент соберет виджеты под запрос.
-                  </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(10, 21, 18, 0.6)' }}>
+                      Задайте вопрос, и ассистент соберет виджеты под запрос.
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => {
+                      const last = [...assistantMessages].reverse().find((message) => message.role === 'assistant');
+                      if (last) {
+                        navigator.clipboard?.writeText(last.content);
+                      }
+                    }}
+                  >
+                    Копировать ответ
+                  </Button>
                 </Box>
-                <Button
-                  variant="text"
-                  size="small"
-                  onClick={() => {
-                    const last = [...assistantMessages].reverse().find((message) => message.role === 'assistant');
-                    if (last) {
-                      navigator.clipboard?.writeText(last.content);
-                    }
-                  }}
-                >
-                  Копировать ответ
-                </Button>
-              </Box>
 
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 {quickPrompts.map((prompt) => (
@@ -505,7 +597,7 @@ export function Dashboard() {
                     key={prompt}
                     label={prompt}
                     size="small"
-                    onClick={() => setAssistantInput(prompt)}
+                    onClick={() => !assistantBusy && setAssistantInput(prompt)}
                     sx={{
                       cursor: 'pointer',
                       border: '1px solid rgba(47, 127, 107, 0.22)',
@@ -538,6 +630,11 @@ export function Dashboard() {
                     </Typography>
                   </Box>
                 ))}
+                {assistantBusy ? (
+                  <Typography variant="caption" sx={{ color: 'rgba(10, 21, 18, 0.65)' }}>
+                    Ассистент анализирует запрос...
+                  </Typography>
+                ) : null}
               </Stack>
 
               {assistantWidgets.length > 0 ? (
@@ -620,15 +717,20 @@ export function Dashboard() {
                   value={assistantInput}
                   onChange={(event) => setAssistantInput(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
+                    if (event.key === 'Enter' && !assistantBusy) {
                       event.preventDefault();
-                      handleAssistantSubmit();
+                      void handleAssistantSubmit();
                     }
                   }}
+                  disabled={assistantBusy}
                   fullWidth
                 />
-                <Button variant="contained" disabled={!assistantInput.trim()} onClick={handleAssistantSubmit}>
-                  Построить
+                <Button
+                  variant="contained"
+                  disabled={!assistantInput.trim() || assistantBusy}
+                  onClick={() => void handleAssistantSubmit()}
+                >
+                  {assistantBusy ? 'Строю...' : 'Построить'}
                 </Button>
               </Stack>
             </Stack>

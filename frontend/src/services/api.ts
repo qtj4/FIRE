@@ -37,3 +37,13 @@ export const intakeApi = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+/** API for AI assistant backend (Flask/OpenAI proxy) */
+export const assistantApi = axios.create({
+  baseURL: resolveBaseUrl(import.meta.env.VITE_ASSISTANT_API_BASE_URL, 'http://localhost:5000'),
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+

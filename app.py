@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import logging
 import tempfile
+import json
 from typing import Any, Optional
 import html as html_lib
 from urllib.parse import quote, unquote
@@ -25,6 +26,7 @@ TWILIO_ACCOUNT_SID = "AC6f2894a55dd4a13ed1cbc5fdec666bfa"
 TWILIO_AUTH_TOKEN = "143cb02c6c0555ea1044a432f7282842"
 OPENAI_API_KEY = "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"
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
+OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 TICKET_WEBHOOK_URL = "http://2.133.130.153:5678/webhook/ticket"
 INTAKE_QUEUE_URL = os.getenv("INTAKE_QUEUE_URL", "http://2.133.130.153:8082/api/v1/intake/queue")
 TICKET_API_KEY = "reqres_bfea449a338147e6aff41a56a3067e4e"
@@ -32,6 +34,34 @@ TICKET_CSV_TEMPLATE = os.getenv(
     "TICKET_CSV_TEMPLATE",
     "a154a8e6-439d-4a7b-86e8-56ef94b18ee2,Мужской,1999-12-31 0:00,{text},VIP,Казахстан,Астана,ул Кабанбай Батыр,40",
 )
+
+ASSISTANT_SYSTEM_PROMPT = """
+Ты AI-ассистент аналитического дашборда тикетов. Пользователь пишет запрос на русском, а ты возвращаешь JSON без markdown.
+Нужно выбрать виджеты для UI по уже доступным данным.
+
+Верни JSON-объект:
+{
+  "reply": "краткий ответ на русском",
+  "widgets": [
+    {
+      "kind": "bar|doughnut|list|stat",
+      "source": "byCity|byType|bySentiment|byOffice|byLanguage|topCities|ticketsTotal|avgPriority|vipShare|inRouting",
+      "title": "заголовок",
+      "orientation": "horizontal|vertical",
+      "topN": 3,
+      "helper": "необязательное пояснение"
+    }
+  ]
+}
+
+Ограничения:
+- Максимум 4 виджета.
+- Для kind=stat source должен быть одним из: ticketsTotal, avgPriority, vipShare, inRouting.
+- Для kind=bar/doughnut/list source должен быть одним из: byCity, byType, bySentiment, byOffice, byLanguage, topCities.
+- orientation указывать только для kind=bar.
+- Если запрос неясен, предложи 1-2 подходящих виджета (например byType и byCity).
+- Ничего кроме JSON.
+""".strip()
 
 
 @app.route("/process-call", methods=["POST"])
@@ -107,6 +137,29 @@ def send_to_backend(
     except requests.RequestException as exc:
         logger.error("Failed to forward recording: %s", exc)
         return None
+
+
+@app.after_request
+def add_cors_headers(response: Response) -> Response:
+    response.headers["Access-Control-Allow-Origin"] = os.getenv("CORS_ALLOW_ORIGIN", "*")
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    return response
+
+
+@app.route("/api/assistant/dashboard", methods=["POST", "OPTIONS"])
+def assistant_dashboard() -> Response:
+    if request.method == "OPTIONS":
+        return Response(status=204)
+
+    payload = request.get_json(silent=True) or {}
+    query = str(payload.get("query", "")).strip()
+    history = payload.get("history")
+    if not query:
+        return jsonify({"error": "query is required"}), 400
+
+    plan = generate_dashboard_assistant_plan(query, history if isinstance(history, list) else [])
+    return jsonify(plan)
 
 
 @app.route("/receive-recording", methods=["POST"])
@@ -347,6 +400,163 @@ def _normalize_uuid(value: str) -> Optional[str]:
     except (ValueError, TypeError):
         logger.warning("Invalid clientGuid from webhook response: %s", value)
         return None
+
+
+def generate_dashboard_assistant_plan(query: str, history: list[Any]) -> dict[str, Any]:
+    if not OPENAI_API_KEY:
+        return fallback_dashboard_assistant_plan(query)
+
+    safe_history = _sanitize_assistant_history(history)
+    messages = [{"role": "system", "content": ASSISTANT_SYSTEM_PROMPT}, *safe_history, {"role": "user", "content": query}]
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        completion = client.chat.completions.create(
+            model=OPENAI_CHAT_MODEL,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=messages,
+        )
+        content = completion.choices[0].message.content or "{}"
+        parsed = json.loads(content)
+        return _sanitize_dashboard_assistant_output(parsed, query)
+    except Exception as exc:  # noqa: BLE001 - fallback keeps endpoint resilient
+        logger.error("Dashboard assistant failed: %s", exc)
+        return fallback_dashboard_assistant_plan(query)
+
+
+def _sanitize_assistant_history(history: list[Any]) -> list[dict[str, str]]:
+    safe_messages: list[dict[str, str]] = []
+    for item in history[-8:]:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if role not in ("user", "assistant") or not isinstance(content, str):
+            continue
+        normalized_content = content.strip()
+        if not normalized_content:
+            continue
+        safe_messages.append({"role": role, "content": normalized_content[:1000]})
+    return safe_messages
+
+
+def _sanitize_dashboard_assistant_output(raw: Any, query: str) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return fallback_dashboard_assistant_plan(query)
+
+    reply = raw.get("reply")
+    reply_text = str(reply).strip() if reply is not None else ""
+
+    sanitized_widgets: list[dict[str, Any]] = []
+    widgets = raw.get("widgets")
+    if isinstance(widgets, list):
+        for item in widgets:
+            normalized = _sanitize_widget_spec(item)
+            if normalized:
+                sanitized_widgets.append(normalized)
+            if len(sanitized_widgets) >= 4:
+                break
+
+    if not sanitized_widgets:
+        return fallback_dashboard_assistant_plan(query)
+
+    if not reply_text:
+        titles = ", ".join(widget["title"] for widget in sanitized_widgets)
+        reply_text = f"Построил виджеты: {titles}."
+
+    return {"reply": reply_text[:600], "widgets": sanitized_widgets}
+
+
+def _sanitize_widget_spec(raw: Any) -> Optional[dict[str, Any]]:
+    if not isinstance(raw, dict):
+        return None
+
+    kind = str(raw.get("kind", "")).strip().lower()
+    source = str(raw.get("source", "")).strip()
+    title = str(raw.get("title", "")).strip()
+    if kind not in ("bar", "doughnut", "list", "stat"):
+        return None
+    if not title:
+        return None
+
+    stat_sources = {"ticketsTotal", "avgPriority", "vipShare", "inRouting"}
+    series_sources = {"byCity", "byType", "bySentiment", "byOffice", "byLanguage", "topCities"}
+    if kind == "stat":
+        if source not in stat_sources:
+            return None
+    else:
+        if source not in series_sources:
+            return None
+
+    spec: dict[str, Any] = {"kind": kind, "source": source, "title": title[:80]}
+
+    helper = raw.get("helper")
+    if isinstance(helper, str) and helper.strip():
+        spec["helper"] = helper.strip()[:120]
+
+    if kind == "bar":
+        orientation = str(raw.get("orientation", "")).strip().lower()
+        if orientation in ("horizontal", "vertical"):
+            spec["orientation"] = orientation
+
+    top_n = raw.get("topN")
+    try:
+        if top_n is not None:
+            spec["topN"] = max(1, min(15, int(top_n)))
+    except (TypeError, ValueError):
+        pass
+
+    return spec
+
+
+def fallback_dashboard_assistant_plan(query: str) -> dict[str, Any]:
+    normalized = (
+        query.lower()
+        .replace(".", " ")
+        .replace(",", " ")
+        .replace("?", " ")
+        .replace("!", " ")
+        .replace(":", " ")
+    )
+    wants_city = any(token in normalized for token in ("город", "регион", "област", "географ"))
+    wants_type = any(token in normalized for token in ("тип", "категор"))
+    wants_sentiment = any(token in normalized for token in ("тональн", "эмоци", "негатив", "позитив"))
+    wants_office = any(token in normalized for token in ("офис", "подраздел"))
+    wants_vip = "vip" in normalized or "премиум" in normalized
+    wants_priority = "приоритет" in normalized
+    wants_queue = any(token in normalized for token in ("очеред", "маршрутизац"))
+    wants_volume = any(token in normalized for token in ("больше", "топ", "лидер", "максим"))
+
+    widgets: list[dict[str, Any]] = []
+    if wants_type:
+        widgets.append({"kind": "bar", "source": "byType", "title": "Типы обращений", "orientation": "horizontal"})
+    if wants_city:
+        widgets.append({"kind": "bar", "source": "byCity", "title": "География обращений"})
+    if wants_sentiment:
+        widgets.append({"kind": "doughnut", "source": "bySentiment", "title": "Тональность обращений"})
+    if wants_office:
+        widgets.append({"kind": "list", "source": "byOffice", "title": "Распределение по офисам"})
+    if wants_vip:
+        widgets.append({"kind": "stat", "source": "vipShare", "title": "Доля VIP обращений", "helper": "От всех обращений"})
+    if wants_priority:
+        widgets.append({"kind": "stat", "source": "avgPriority", "title": "Средний приоритет", "helper": "По шкале 1-10"})
+    if wants_queue:
+        widgets.append({"kind": "stat", "source": "inRouting", "title": "В маршрутизации", "helper": "Ожидают назначения"})
+    if wants_volume:
+        widgets.append({"kind": "list", "source": "topCities", "title": "Топ города по обращениям", "topN": 3})
+
+    if not widgets:
+        widgets = [
+            {"kind": "bar", "source": "byType", "title": "Типы обращений", "orientation": "horizontal"},
+            {"kind": "bar", "source": "byCity", "title": "География обращений"},
+        ]
+
+    widgets = widgets[:4]
+    titles = ", ".join(widget["title"] for widget in widgets)
+    return {
+        "reply": f"Собрал виджеты по запросу: {titles}. Если нужно, уточните срез (город, офис, тональность, VIP, очередь).",
+        "widgets": widgets,
+    }
 
 
 def _fetch_html(url: str) -> str:
