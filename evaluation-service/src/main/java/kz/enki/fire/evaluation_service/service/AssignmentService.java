@@ -116,10 +116,18 @@ public class AssignmentService {
         }
 
         if (ticket.getLatitude() != null && ticket.getLongitude() != null) {
-            return offices.stream()
+            Office nearestByCoordinates = offices.stream()
                     .filter(o -> o.getLatitude() != null && o.getLongitude() != null)
                     .min(Comparator.comparing(o -> distance(ticket.getLatitude(), ticket.getLongitude(), o.getLatitude(), o.getLongitude())))
                     .orElse(null);
+            if (nearestByCoordinates != null) {
+                return nearestByCoordinates;
+            }
+        }
+
+        Office byGeoNormalized = selectOfficeByGeoNormalized(ticket.getGeoNormalized(), offices);
+        if (byGeoNormalized != null) {
+            return byGeoNormalized;
         }
 
         log.warn(
@@ -261,6 +269,75 @@ public class AssignmentService {
                 .collect(Collectors.toList());
     }
 
+    private Office selectOfficeByGeoNormalized(String geoNormalized, List<Office> offices) {
+        if (geoNormalized == null || geoNormalized.isBlank() || offices == null || offices.isEmpty()) {
+            return null;
+        }
+
+        String normalizedGeo = normalizeOffice(geoNormalized);
+        int bestScore = 0;
+        Office bestOffice = null;
+
+        for (Office office : offices) {
+            int score = scoreOfficeAgainstGeoNormalized(normalizedGeo, office);
+            if (score > bestScore) {
+                bestScore = score;
+                bestOffice = office;
+            }
+        }
+
+        if (bestOffice != null && bestScore > 0) {
+            log.info(
+                    "Selected office '{}' by geo_normalized='{}' with score={}",
+                    bestOffice.getName(),
+                    geoNormalized,
+                    bestScore
+            );
+            return bestOffice;
+        }
+        return null;
+    }
+
+    private int scoreOfficeAgainstGeoNormalized(String normalizedGeo, Office office) {
+        if (office == null) {
+            return 0;
+        }
+
+        int score = 0;
+        String normalizedOfficeName = normalizeOffice(office.getName());
+        String normalizedOfficeAddress = normalizeOffice(office.getAddress());
+
+        if (!normalizedOfficeName.isBlank() && normalizedGeo.contains(normalizedOfficeName)) {
+            score += 120;
+        }
+        if (!normalizedOfficeAddress.isBlank() && normalizedGeo.contains(normalizedOfficeAddress)) {
+            score += 80;
+        }
+
+        score += tokenScore(normalizedGeo, normalizedOfficeName, 4, 18);
+        score += tokenScore(normalizedGeo, normalizedOfficeAddress, 5, 6);
+
+        return score;
+    }
+
+    private int tokenScore(String haystack, String source, int minTokenLength, int tokenWeight) {
+        if (haystack == null || haystack.isBlank() || source == null || source.isBlank()) {
+            return 0;
+        }
+
+        int score = 0;
+        String[] tokens = source.split(" ");
+        for (String token : tokens) {
+            if (token.length() < minTokenLength) {
+                continue;
+            }
+            if (haystack.contains(token)) {
+                score += tokenWeight;
+            }
+        }
+        return score;
+    }
+
     private Office resolveAssignedOffice(Office selectedOffice, Manager manager) {
         if (selectedOffice != null) {
             return selectedOffice;
@@ -280,7 +357,12 @@ public class AssignmentService {
         if (value == null) {
             return "";
         }
-        return value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+        return value
+                .toLowerCase(Locale.ROOT)
+                .replace('ё', 'е')
+                .replaceAll("[^\\p{L}\\p{Nd}]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private boolean hasVipIfNeeded(Manager m, String type, Integer priority) {

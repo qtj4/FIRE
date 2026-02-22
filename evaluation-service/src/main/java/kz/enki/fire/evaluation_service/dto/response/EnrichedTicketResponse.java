@@ -24,6 +24,7 @@ public class EnrichedTicketResponse {
     private String sentiment;
     private BigDecimal latitude;
     private BigDecimal longitude;
+    private String geoNormalized;
     private Long assignedOfficeId;
     private String assignedOfficeName;
     private Long assignedManagerId;

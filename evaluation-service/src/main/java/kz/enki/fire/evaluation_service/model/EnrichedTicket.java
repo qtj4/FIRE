@@ -51,6 +51,9 @@ public class EnrichedTicket {
 
     private BigDecimal longitude;
 
+    @Column(name = "geo_normalized", columnDefinition = "TEXT")
+    private String geoNormalized;
+
     @ManyToOne
     @JoinColumn(name = "assigned_office_id")
     private Office assignedOffice;

@@ -32,6 +32,7 @@ export interface Ticket {
   language?: Language;
   sentiment?: Sentiment;
   summary?: string;
+  geoNormalized?: string;
   latitude?: number;
   longitude?: number;
   assignedManager?: string;

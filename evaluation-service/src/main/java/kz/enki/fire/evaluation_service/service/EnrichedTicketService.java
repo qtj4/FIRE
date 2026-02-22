@@ -121,6 +121,7 @@ public class EnrichedTicketService {
                 .sentiment(t.getSentiment())
                 .latitude(t.getLatitude())
                 .longitude(t.getLongitude())
+                .geoNormalized(t.getGeoNormalized())
                 .assignedOfficeId(t.getAssignedOffice() != null ? t.getAssignedOffice().getId() : null)
                 .assignedOfficeName(t.getAssignedOffice() != null ? t.getAssignedOffice().getName() : null)
                 .assignedManagerId(t.getAssignedManager() != null ? t.getAssignedManager().getId() : null)

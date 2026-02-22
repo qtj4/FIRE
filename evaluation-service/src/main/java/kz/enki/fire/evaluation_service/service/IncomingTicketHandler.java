@@ -114,5 +114,6 @@ public class IncomingTicketHandler {
         ticket.setSentiment(message.getSentiment());
         ticket.setLatitude(message.getLatitude());
         ticket.setLongitude(message.getLongitude());
+        ticket.setGeoNormalized(message.getGeoNormalized());
     }
 }
