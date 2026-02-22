@@ -135,12 +135,13 @@ services:
 
   ticket-intake-service:
     build:
-      context: ./evaluation-service
+      context: ./ticket-intake-service
       dockerfile: Dockerfile
     container_name: fire-ticket-intake
     ports:
       - "8082:8082"
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fire
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
