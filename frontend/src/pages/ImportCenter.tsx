@@ -23,7 +23,11 @@ import { fetchIntakeResults, uploadManagersCsv, uploadOfficesCsv, uploadTicketsC
 import type { IntakeDataset, IntakeResponse, TicketProcessingResult } from '@/types';
 
 const POLL_INTERVAL_MS = 2000;
-const POLL_TIMEOUT_MS = 60000;
+const POLL_TIMEOUT_MS = (() => {
+  const parsed = Number(import.meta.env.VITE_INTAKE_POLL_TIMEOUT_MS);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 300000;
+  return Math.floor(parsed);
+})();
 const DATASET_LABEL: Record<IntakeDataset, string> = {
   tickets: 'Тикеты',
   offices: 'Офисы',

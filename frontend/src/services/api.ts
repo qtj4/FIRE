@@ -2,6 +2,12 @@ import axios from 'axios';
 
 export const useMocks = import.meta.env.VITE_USE_MOCKS === 'true';
 
+function resolveTimeoutMs(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
 function resolveBaseUrl(value: string | undefined, fallback: string): string {
   const url = (value ?? '').trim();
   if (!url) {
@@ -17,7 +23,7 @@ function resolveBaseUrl(value: string | undefined, fallback: string): string {
 
 export const api = axios.create({
   baseURL: resolveBaseUrl(import.meta.env.VITE_API_BASE_URL, ''),
-  timeout: 10000,
+  timeout: resolveTimeoutMs(import.meta.env.VITE_API_TIMEOUT_MS, 20000),
   headers: {
     'Content-Type': 'application/json'
   }
@@ -26,7 +32,7 @@ export const api = axios.create({
 /** API for ticket-intake-service (CSV upload, intake pipeline) */
 export const intakeApi = axios.create({
   baseURL: resolveBaseUrl(import.meta.env.VITE_INTAKE_API_BASE_URL, ''),
-  timeout: 60000,
+  timeout: resolveTimeoutMs(import.meta.env.VITE_INTAKE_API_TIMEOUT_MS, 300000),
   headers: {
     'Content-Type': 'application/json'
   }

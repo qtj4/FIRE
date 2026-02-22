@@ -65,6 +65,12 @@ spec:
               value: "true"
             - name: IDEMPOTENCY_TTL_SECONDS
               value: "86400"
+            - name: TICKET_ASYNC_CORE_POOL_SIZE
+              value: "24"
+            - name: TICKET_ASYNC_MAX_POOL_SIZE
+              value: "64"
+            - name: TICKET_ASYNC_QUEUE_CAPACITY
+              value: "2000"
             - name: N8N_URL
               value: "http://2.133.130.153"
             - name: N8N_PORT
