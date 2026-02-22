@@ -74,6 +74,7 @@ app:
 evaluation:
   base-url: ${EVALUATION_BASE_URL:http://localhost:8092}
   assign-path: ${EVALUATION_ASSIGN_PATH:/api/v1/intake}
+  tickets-path: ${EVALUATION_TICKETS_PATH:/api/evaluation/tickets}
 
 n8n:
   url: ${N8N_URL:http://2.133.130.153}

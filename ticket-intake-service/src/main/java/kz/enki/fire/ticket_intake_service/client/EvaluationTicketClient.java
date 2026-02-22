@@ -1,8 +1,7 @@
 package kz.enki.fire.ticket_intake_service.client;
 
-import kz.enki.fire.ticket_intake_service.dto.request.EvaluationAssignRequest;
+import kz.enki.fire.ticket_intake_service.dto.request.EvaluationTicketCreateRequest;
 import kz.enki.fire.ticket_intake_service.dto.request.PutInQueueRequest;
-import kz.enki.fire.ticket_intake_service.dto.response.EvaluationAssignmentResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -10,7 +9,6 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 @Component
@@ -22,58 +20,51 @@ public class EvaluationTicketClient {
     @Value("${evaluation.base-url}")
     private String evaluationBaseUrl;
 
-    @Value("${evaluation.assign-path:/api/v1/intake}")
-    private String assignPath;
+    @Value("${evaluation.tickets-path:/api/evaluation/tickets}")
+    private String ticketsPath;
 
-    public EvaluationAssignmentResponse assignImmediately(
-            Long rawTicketId,
-            UUID clientGuid,
-            PutInQueueRequest request,
-            BigDecimal latitude,
-            BigDecimal longitude
-    ) {
-        if (rawTicketId == null || clientGuid == null || request == null) {
-            throw new IllegalArgumentException("rawTicketId, clientGuid and request are required");
+    public void createForImmediateUi(UUID clientGuid, PutInQueueRequest request) {
+        if (clientGuid == null || request == null) {
+            return;
         }
 
-        EvaluationAssignRequest payload = EvaluationAssignRequest.builder()
-                .rawTicketId(rawTicketId)
+        EvaluationTicketCreateRequest payload = EvaluationTicketCreateRequest.builder()
+                .rawTicketId(null)
                 .clientGuid(clientGuid)
                 .type(request.getType())
                 .priority(request.getPriority())
                 .summary(request.getSummary())
                 .language(request.getLanguage())
                 .sentiment(request.getSentiment())
-                .latitude(latitude)
-                .longitude(longitude)
+                .latitude(null)
+                .longitude(null)
                 .build();
 
-        String url = buildAssignUrl();
+        String url = buildUrl();
         try {
-            EvaluationAssignmentResponse response = restTemplate.postForObject(
-                    url,
-                    payload,
-                    EvaluationAssignmentResponse.class
-            );
-            if (response == null) {
-                throw new IllegalStateException("evaluation-service returned empty assignment response");
-            }
-            return response;
+            restTemplate.postForObject(url, payload, Object.class);
+            log.info("Synced ticket to evaluation-service for immediate UI, clientGuid={}", clientGuid);
         } catch (RestClientResponseException e) {
-            throw new IllegalStateException(
-                    "Evaluation assign failed: status=" + e.getRawStatusCode() + ", body=" + e.getResponseBodyAsString(),
-                    e
+            log.warn(
+                    "Failed to sync ticket to evaluation-service: status={}, clientGuid={}, body={}",
+                    e.getRawStatusCode(),
+                    clientGuid,
+                    e.getResponseBodyAsString()
             );
         } catch (ResourceAccessException e) {
-            throw new IllegalStateException("Evaluation-service is unreachable: " + e.getMessage(), e);
+            log.warn(
+                    "Evaluation-service is unreachable while syncing ticket clientGuid={}: {}",
+                    clientGuid,
+                    e.getMessage()
+            );
         } catch (Exception e) {
-            throw new IllegalStateException("Unexpected error calling evaluation-service: " + e.getMessage(), e);
+            log.warn("Unexpected error while syncing ticket clientGuid={}: {}", clientGuid, e.getMessage());
         }
     }
 
-    private String buildAssignUrl() {
+    private String buildUrl() {
         String base = evaluationBaseUrl == null ? "" : evaluationBaseUrl.trim();
-        String path = assignPath == null ? "/api/v1/intake" : assignPath.trim();
+        String path = ticketsPath == null ? "/api/evaluation/tickets" : ticketsPath.trim();
 
         if (!path.startsWith("/")) {
             path = "/" + path;
@@ -82,6 +73,6 @@ public class EvaluationTicketClient {
             base = base.substring(0, base.length() - 1);
         }
 
-        return base + path + "/tickets/assign";
+        return base + path;
     }
 }

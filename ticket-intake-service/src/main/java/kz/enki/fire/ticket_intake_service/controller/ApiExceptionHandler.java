@@ -19,22 +19,4 @@ public class ApiExceptionHandler {
                         "message", ex.getMessage()
                 ));
     }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of(
-                        "status", "BAD_REQUEST",
-                        "message", ex.getMessage()
-                ));
-    }
-
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                .body(Map.of(
-                        "status", "BAD_GATEWAY",
-                        "message", ex.getMessage()
-                ));
-    }
 }
