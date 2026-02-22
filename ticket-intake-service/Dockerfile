@@ -1,24 +1,16 @@
-# Build stage
-FROM maven:3.9.6-eclipse-temurin-21 AS build
+# Build with context = ticket-intake-service directory (like evaluation-service).
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
 
-# Copy parent pom.xml
-COPY pom.xml .
+# Module pom has parent ../pom.xml, so we provide it from parent-pom.xml.
+COPY parent-pom.xml /app/pom.xml
+COPY pom.xml /app/ticket-intake-service/pom.xml
+COPY src /app/ticket-intake-service/src
 
-# Copy module poms that are defined in parent pom.xml
-COPY ticket-intake-service/pom.xml ./ticket-intake-service/
-COPY evaluation-service/pom.xml ./evaluation-service/
-COPY api-gateway/pom.xml ./api-gateway/
+RUN mvn -f /app/ticket-intake-service/pom.xml clean package -Dmaven.test.skip=true
 
-# Copy source code for the target module
-COPY ticket-intake-service/src ./ticket-intake-service/src
-
-# Build only the ticket-intake-service module
-RUN mvn clean package -pl ticket-intake-service -am -DskipTests
-
-# Run stage
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/ticket-intake-service/target/*.jar app.jar
-EXPOSE 8081
+COPY --from=builder /app/ticket-intake-service/target/*.jar app.jar
+EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "app.jar"]
